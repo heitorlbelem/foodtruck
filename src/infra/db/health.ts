@@ -1,0 +1,41 @@
+import type { Pool } from "pg";
+
+export async function checkDatabase(pool: Pool) {
+  const startedAt = performance.now();
+
+  try {
+    // Unquoted identifiers are folded to lower case by Postgres, so the column
+    // comes back as server_version without needing the quotes.
+    const { rows } = await pool.query<{ server_version: string }>(
+      `SELECT current_setting('server_version') AS server_version`,
+    );
+
+    return {
+      status: "ok" as const,
+      serverVersion: rows[0]?.server_version,
+      latencyMs: elapsedSince(startedAt),
+      pool: statsOf(pool),
+    };
+  } catch (error) {
+    return {
+      status: "unavailable" as const,
+      latencyMs: elapsedSince(startedAt),
+      pool: statsOf(pool),
+      error,
+    };
+  }
+}
+
+// Read after the query, not before: on the first request the pool is still
+// empty, and zeros would say nothing about contention.
+function statsOf(pool: Pool) {
+  return {
+    total: pool.totalCount,
+    idle: pool.idleCount,
+    waiting: pool.waitingCount,
+  };
+}
+
+function elapsedSince(startedAt: number) {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
+}
