@@ -8,20 +8,24 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "fastify": "^5.12.8"
+    "fastify": "^5.12.8",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "node-pg-migrate": "^9.0.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },
   "scripts": {
-    "dev": "node --env-file=.env.development --env-file-if-exists=.env --watch src/server.ts",
-    "start": "node --env-file=.env.development --env-file-if-exists=.env src/server.ts",
+    "dev": "node --env-file=.env.development --watch src/server.ts",
+    "start": "node --env-file=.env.development src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:up": "docker compose -f infra/compose.yml up -d",
-    "db:down": "docker compose -f infra/compose.yml down"
+    "db:up": "docker compose -f docker/compose.yml up -d --wait",
+    "db:down": "docker compose -f docker/compose.yml down",
+    "migrate": "node --env-file=.env.development node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j sql"
   }
 }
