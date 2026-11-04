@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { readMenu } from "../catalog/menu.ts";
-import { addonSchema } from "./addons.ts";
+import { addonSchema } from "../modules/addons/addons.schemas.ts";
 import { categorySchema } from "../modules/categories/categories.schemas.ts";
 import { comboSchema } from "./combos.ts";
 import { itemSchema } from "./items.ts";

@@ -1,7 +1,10 @@
 import type { Pool } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
-import { type Addon, listAddons } from "./addons.ts";
+import {
+  type Addon,
+  makeAddonRepository,
+} from "../modules/addons/addons.repository.ts";
 import {
   type Category,
   makeCategoryRepository,
@@ -21,7 +24,7 @@ export async function readMenu(db: Pool, foodtruckId: string): Promise<Menu> {
 
     const categories = await makeCategoryRepository(tx).list(foodtruckId);
     const items = await listItems(tx, foodtruckId);
-    const addons = await listAddons(tx, foodtruckId);
+    const addons = await makeAddonRepository(tx).list(foodtruckId);
     const combos = await listCombos(tx, foodtruckId);
 
     return {

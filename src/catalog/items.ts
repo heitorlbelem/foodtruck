@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
-import type { Addon } from "./addons.ts";
+import type { Addon } from "../modules/addons/addons.repository.ts";
 import type { RestoreResult } from "./archived.ts";
 
 export type Item = {

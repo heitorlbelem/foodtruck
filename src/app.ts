@@ -4,10 +4,10 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
 import type { Pool } from "pg";
 
 import { createPool } from "./infra/db/pool.ts";
-import { addonRoutes } from "./routes/addons.ts";
 import { comboRoutes } from "./routes/combos.ts";
 import { itemRoutes } from "./routes/items.ts";
 import { menuRoutes } from "./routes/menu.ts";
+import { addonRoutes } from "./modules/addons/addons.routes.ts";
 import { categoryRoutes } from "./modules/categories/categories.routes.ts";
 import { healthRoutes } from "./modules/health/health.routes.ts";
 import { AppError } from "./shared/errors.ts";

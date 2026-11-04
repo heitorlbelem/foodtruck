@@ -14,7 +14,7 @@ import {
   isForeignKeyViolation,
   isUniqueViolation,
 } from "../infra/db/errors.ts";
-import { addonSchema } from "./addons.ts";
+import { addonSchema } from "../modules/addons/addons.schemas.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
 import { idParams, priceCents, uuid } from "../shared/schemas.ts";
