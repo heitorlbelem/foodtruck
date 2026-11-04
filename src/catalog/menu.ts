@@ -10,7 +10,10 @@ import {
   makeCategoryRepository,
 } from "../modules/categories/categories.repository.ts";
 import { type Combo, listCombos } from "./combos.ts";
-import { type Item, listItems } from "./items.ts";
+import {
+  type Item,
+  makeItemRepository,
+} from "../modules/items/items.repository.ts";
 
 export type Menu = {
   categories: (Category & { items: Item[] })[];
@@ -23,7 +26,7 @@ export async function readMenu(db: Pool, foodtruckId: string): Promise<Menu> {
     await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 
     const categories = await makeCategoryRepository(tx).list(foodtruckId);
-    const items = await listItems(tx, foodtruckId);
+    const items = await makeItemRepository(tx).list(foodtruckId);
     const addons = await makeAddonRepository(tx).list(foodtruckId);
     const combos = await listCombos(tx, foodtruckId);
 

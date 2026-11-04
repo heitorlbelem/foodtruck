@@ -14,6 +14,19 @@ export function makeComboRepository(db: Queryable) {
 
       return rows.map((row) => row.name);
     },
+
+    async liveNamesContainingItem(itemId: string): Promise<string[]> {
+      const { rows } = await db.query<{ name: string }>(
+        `SELECT DISTINCT combo.name
+           FROM combo_components component
+           JOIN combos combo ON combo.id = component.combo_id
+          WHERE component.item_id = $1 AND combo.archived_at IS NULL
+          ORDER BY combo.name`,
+        [itemId],
+      );
+
+      return rows.map((row) => row.name);
+    },
   };
 }
 

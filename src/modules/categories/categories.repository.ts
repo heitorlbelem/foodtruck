@@ -61,6 +61,26 @@ export function makeCategoryRepository(db: Queryable) {
       return rows[0];
     },
 
+    async lockShared(
+      id: string,
+    ): Promise<
+      { name: string; archived: boolean; foodtruck_id: string } | undefined
+    > {
+      const { rows } = await db.query<{
+        name: string;
+        archived: boolean;
+        foodtruck_id: string;
+      }>(
+        `SELECT name, archived_at IS NOT NULL AS archived, foodtruck_id
+           FROM categories
+          WHERE id = $1
+            FOR SHARE`,
+        [id],
+      );
+
+      return rows[0];
+    },
+
     async archive(id: string): Promise<void> {
       await db.query(
         `UPDATE categories

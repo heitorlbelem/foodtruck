@@ -58,6 +58,19 @@ export function makeAddonRepository(db: Queryable) {
       return rows[0];
     },
 
+    async lockLiveIds(foodtruckId: string, ids: string[]): Promise<string[]> {
+      const { rows } = await db.query<{ id: string }>(
+        `SELECT id FROM addons
+          WHERE id = ANY($1::uuid[])
+            AND foodtruck_id = $2
+            AND archived_at IS NULL
+            FOR SHARE`,
+        [ids, foodtruckId],
+      );
+
+      return rows.map((row) => row.id);
+    },
+
     async archive(id: string): Promise<void> {
       await db.query(
         `UPDATE addons

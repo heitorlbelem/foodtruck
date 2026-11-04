@@ -5,7 +5,7 @@ import { readMenu } from "../catalog/menu.ts";
 import { addonSchema } from "../modules/addons/addons.schemas.ts";
 import { categorySchema } from "../modules/categories/categories.schemas.ts";
 import { comboSchema } from "./combos.ts";
-import { itemSchema } from "./items.ts";
+import { itemSchema } from "../modules/items/items.schemas.ts";
 
 const menuSchema = {
   type: "object",
