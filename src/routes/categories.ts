@@ -7,7 +7,7 @@ import {
   restoreCategory,
   updateCategory,
 } from "../catalog/categories.ts";
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound } from "./http-errors.ts";
@@ -34,7 +34,8 @@ export async function categoryRoutes(app: FastifyInstance) {
   app.get(
     "/categories",
     { schema: { response: { 200: { type: "array", items: categorySchema } } } },
-    async () => listCategories(app.db, await currentFoodtruckId(app.db)),
+    async () =>
+      listCategories(app.db, await makeFoodtruckRepository(app.db).currentId()),
   );
 
   app.post<{ Body: CategoryBody & { name: string } }>(
@@ -51,7 +52,7 @@ export async function categoryRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const foodtruckId = await currentFoodtruckId(app.db);
+      const foodtruckId = await makeFoodtruckRepository(app.db).currentId();
       const category = await createCategory(
         app.db,
         foodtruckId,

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import {
   archiveItem,
   createItem,
@@ -60,7 +60,8 @@ export async function itemRoutes(app: FastifyInstance) {
   app.get(
     "/items",
     { schema: { response: { 200: { type: "array", items: itemSchema } } } },
-    async () => listItems(app.db, await currentFoodtruckId(app.db)),
+    async () =>
+      listItems(app.db, await makeFoodtruckRepository(app.db).currentId()),
   );
 
   app.post<{ Body: ItemBody }>(
@@ -77,7 +78,7 @@ export async function itemRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const foodtruckId = await currentFoodtruckId(app.db);
+      const foodtruckId = await makeFoodtruckRepository(app.db).currentId();
       const item = await createItem(app.db, foodtruckId, request.body).catch(
         rethrowWriteError(app, request.body),
       );

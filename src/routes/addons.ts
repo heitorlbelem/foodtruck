@@ -7,7 +7,7 @@ import {
   updateAddon,
   restoreAddon,
 } from "../catalog/addons.ts";
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound } from "./http-errors.ts";
@@ -34,7 +34,8 @@ export async function addonRoutes(app: FastifyInstance) {
   app.get(
     "/addons",
     { schema: { response: { 200: { type: "array", items: addonSchema } } } },
-    async () => listAddons(app.db, await currentFoodtruckId(app.db)),
+    async () =>
+      listAddons(app.db, await makeFoodtruckRepository(app.db).currentId()),
   );
 
   app.post<{ Body: AddonBody }>(
@@ -51,7 +52,7 @@ export async function addonRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const foodtruckId = await currentFoodtruckId(app.db);
+      const foodtruckId = await makeFoodtruckRepository(app.db).currentId();
       const addon = await createAddon(app.db, foodtruckId, request.body).catch(
         rethrowWriteError(app, request.body),
       );

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 
 import { archivedIdNamed, type RestoreResult } from "../catalog/archived.ts";
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { conflict, notFound } from "./http-errors.ts";
 import { idParams } from "./schemas.ts";
 
@@ -19,7 +19,7 @@ export async function nameTaken(
       : await archivedIdNamed(
           app.db,
           table,
-          await currentFoodtruckId(app.db),
+          await makeFoodtruckRepository(app.db).currentId(),
           name,
         );
 

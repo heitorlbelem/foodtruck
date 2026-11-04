@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { readMenu } from "../catalog/menu.ts";
 import { addonSchema } from "./addons.ts";
 import { categorySchema } from "./categories.ts";
@@ -27,6 +27,6 @@ const menuSchema = {
 
 export async function menuRoutes(app: FastifyInstance) {
   app.get("/menu", { schema: { response: { 200: menuSchema } } }, async () =>
-    readMenu(app.db, await currentFoodtruckId(app.db)),
+    readMenu(app.db, await makeFoodtruckRepository(app.db).currentId()),
   );
 }

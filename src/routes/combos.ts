@@ -11,7 +11,7 @@ import {
   updateCombo,
   restoreCombo,
 } from "../catalog/combos.ts";
-import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { notFound, unprocessable } from "./http-errors.ts";
@@ -65,7 +65,8 @@ export async function comboRoutes(app: FastifyInstance) {
   app.get(
     "/combos",
     { schema: { response: { 200: { type: "array", items: comboSchema } } } },
-    async () => listCombos(app.db, await currentFoodtruckId(app.db)),
+    async () =>
+      listCombos(app.db, await makeFoodtruckRepository(app.db).currentId()),
   );
 
   app.post<{ Body: ComboInput }>(
@@ -82,7 +83,7 @@ export async function comboRoutes(app: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const foodtruckId = await currentFoodtruckId(app.db);
+      const foodtruckId = await makeFoodtruckRepository(app.db).currentId();
       const combo = await createCombo(app.db, foodtruckId, request.body).catch(
         rethrowWriteError(app, request.body),
       );
