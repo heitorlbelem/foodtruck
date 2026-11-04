@@ -1,4 +1,4 @@
-import { MAX_PRICE_CENTS } from "../catalog/money.ts";
+import { MAX_PRICE_CENTS } from "./money.ts";
 
 export const MAX_QUANTITY = 99;
 

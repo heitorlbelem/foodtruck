@@ -17,7 +17,7 @@ import {
 import { addonSchema } from "./addons.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
-import { idParams, priceCents, uuid } from "./schemas.ts";
+import { idParams, priceCents, uuid } from "../shared/schemas.ts";
 
 type ItemBody = {
   category_id: string;

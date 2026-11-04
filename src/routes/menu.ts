@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { readMenu } from "../catalog/menu.ts";
 import { addonSchema } from "./addons.ts";
-import { categorySchema } from "./categories.ts";
+import { categorySchema } from "../modules/categories/categories.schemas.ts";
 import { comboSchema } from "./combos.ts";
 import { itemSchema } from "./items.ts";
 

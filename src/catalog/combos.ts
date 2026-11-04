@@ -2,7 +2,7 @@ import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
 import type { RestoreResult } from "./archived.ts";
-import { MAX_PRICE_CENTS } from "./money.ts";
+import { MAX_PRICE_CENTS } from "../shared/money.ts";
 
 export type ComboComponent = {
   id: string;

@@ -15,7 +15,7 @@ import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.reposito
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { nameTaken, restoreRoute } from "./archiving.ts";
 import { notFound, unprocessable } from "./http-errors.ts";
-import { idParams, MAX_QUANTITY, priceCents, uuid } from "./schemas.ts";
+import { idParams, MAX_QUANTITY, priceCents, uuid } from "../shared/schemas.ts";
 
 type IdParams = { id: string };
 

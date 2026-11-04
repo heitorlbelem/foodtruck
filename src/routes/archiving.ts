@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { archivedIdNamed, type RestoreResult } from "../catalog/archived.ts";
 import { makeFoodtruckRepository } from "../modules/foodtruck/foodtruck.repository.ts";
 import { conflict, notFound } from "./http-errors.ts";
-import { idParams } from "./schemas.ts";
+import { idParams } from "../shared/schemas.ts";
 
 type Table = "categories" | "items" | "addons" | "combos";
 

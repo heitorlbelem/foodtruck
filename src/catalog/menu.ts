@@ -2,7 +2,10 @@ import type { Pool } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
 import { type Addon, listAddons } from "./addons.ts";
-import { type Category, listCategories } from "./categories.ts";
+import {
+  type Category,
+  makeCategoryRepository,
+} from "../modules/categories/categories.repository.ts";
 import { type Combo, listCombos } from "./combos.ts";
 import { type Item, listItems } from "./items.ts";
 
@@ -16,7 +19,7 @@ export async function readMenu(db: Pool, foodtruckId: string): Promise<Menu> {
   return withTransaction(db, async (tx) => {
     await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 
-    const categories = await listCategories(tx, foodtruckId);
+    const categories = await makeCategoryRepository(tx).list(foodtruckId);
     const items = await listItems(tx, foodtruckId);
     const addons = await listAddons(tx, foodtruckId);
     const combos = await listCombos(tx, foodtruckId);
