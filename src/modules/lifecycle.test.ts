@@ -354,3 +354,155 @@ describe("restore paths are validated", () => {
     });
   }
 });
+
+describe("error details", () => {
+  async function details(
+    method: "POST" | "PATCH" | "DELETE",
+    url: string,
+    payload?: object,
+  ) {
+    return (await inject(method, url, payload)).json().details;
+  }
+
+  it("names the archived row on a POST onto its name", async () => {
+    await inject("DELETE", `/items/${burger.id}`);
+
+    expect(
+      await details("POST", "/items", {
+        category_id: snacks.id,
+        name: "Picanha",
+        price_cents: 5000,
+      }),
+    ).toEqual({ archived_id: burger.id });
+  });
+
+  it("names the archived row on a rename onto its name", async () => {
+    await inject("DELETE", `/items/${soda.id}`);
+    const desserts = await post("/categories", { name: "Sobremesas" });
+    await inject("DELETE", `/categories/${desserts.id}`);
+
+    expect(
+      await details("PATCH", `/items/${burger.id}`, { name: "Refrigerante" }),
+    ).toEqual({ archived_id: soda.id });
+    expect(
+      await details("PATCH", `/categories/${snacks.id}`, {
+        name: "Sobremesas",
+      }),
+    ).toEqual({ archived_id: desserts.id });
+  });
+
+  it("sends no details for a live name or a row that is not archived", async () => {
+    const taken = await inject("POST", "/addons", {
+      name: "Bacon",
+      price_cents: 1,
+    });
+    const live = await inject("POST", `/addons/${bacon.id}/restore`);
+
+    expect(taken.json()).not.toHaveProperty("details");
+    expect(live.json()).not.toHaveProperty("details");
+  });
+
+  it("lists the items and combos holding a category", async () => {
+    const combo = await post("/combos", {
+      name: "Combo Picanha",
+      components: [
+        { item_id: burger.id, quantity: 1, swap_category_id: snacks.id },
+      ],
+    });
+
+    expect(await details("DELETE", `/categories/${snacks.id}`)).toEqual({
+      items: [{ id: burger.id, name: "Picanha" }],
+      combos: [{ id: combo.id, name: "Combo Picanha" }],
+    });
+  });
+
+  it("lists the items holding an addon", async () => {
+    expect(await details("DELETE", `/addons/${bacon.id}`)).toEqual({
+      items: [{ id: burger.id, name: "Picanha" }],
+    });
+  });
+
+  it("lists the combos holding an item", async () => {
+    const combo = await post("/combos", {
+      name: "Combo Picanha",
+      components: [{ item_id: burger.id, quantity: 1 }],
+    });
+
+    expect(await details("DELETE", `/items/${burger.id}`)).toEqual({
+      combos: [{ id: combo.id, name: "Combo Picanha" }],
+    });
+  });
+
+  it("lists the archived items and categories blocking a combo restore", async () => {
+    const combo = await post("/combos", {
+      name: "Combo Picanha",
+      components: [
+        { item_id: burger.id, quantity: 1 },
+        { item_id: soda.id, quantity: 1, swap_category_id: drinks.id },
+      ],
+    });
+    await inject("DELETE", `/combos/${combo.id}`);
+    await inject("DELETE", `/items/${soda.id}`);
+    await inject("DELETE", `/categories/${drinks.id}`);
+
+    expect(await details("POST", `/combos/${combo.id}/restore`)).toEqual({
+      items: [{ id: soda.id, name: "Refrigerante" }],
+      categories: [{ id: drinks.id, name: "Bebidas" }],
+    });
+  });
+
+  it("names the archived category blocking an item restore", async () => {
+    await inject("DELETE", `/items/${soda.id}`);
+    await inject("DELETE", `/categories/${drinks.id}`);
+
+    expect(await details("POST", `/items/${soda.id}/restore`)).toEqual({
+      categories: [{ id: drinks.id, name: "Bebidas" }],
+    });
+  });
+
+  it("lists the ids of unknown or archived references", async () => {
+    const ghost = randomUUID();
+    await inject("DELETE", `/items/${soda.id}`);
+    await inject("DELETE", `/categories/${drinks.id}`);
+
+    expect(
+      await details("POST", "/combos", {
+        name: "Combo",
+        components: [{ item_id: ghost, quantity: 1 }],
+      }),
+    ).toEqual({ ids: [ghost] });
+    expect(
+      await details("POST", "/combos", {
+        name: "Combo",
+        components: [
+          { item_id: burger.id, quantity: 1, swap_category_id: ghost },
+        ],
+      }),
+    ).toEqual({ ids: [ghost] });
+    expect(
+      await details("POST", "/items", {
+        category_id: drinks.id,
+        name: "Suco",
+        price_cents: 800,
+      }),
+    ).toEqual({ ids: [drinks.id] });
+    expect(
+      await details("PATCH", `/items/${burger.id}`, { addon_ids: [ghost] }),
+    ).toEqual({ ids: [ghost] });
+  });
+
+  it("carries the suggested price above the ceiling", async () => {
+    const wagyu = await post("/items", {
+      category_id: snacks.id,
+      name: "Wagyu",
+      price_cents: 100_000_000,
+    });
+
+    expect(
+      await details("POST", "/combos", {
+        name: "Combo Wagyu",
+        components: [{ item_id: wagyu.id, quantity: 2 }],
+      }),
+    ).toEqual({ suggested_price_cents: 200_000_000 });
+  });
+});

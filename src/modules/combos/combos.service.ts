@@ -6,6 +6,7 @@ import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
   NotFoundError,
+  type Ref,
   UnprocessableError,
 } from "../../shared/errors.ts";
 import { MAX_PRICE_CENTS } from "../../shared/money.ts";
@@ -77,6 +78,7 @@ export function makeComboService({ db }: { db: Pool }) {
       ? new ConflictError(
           "NAME_TAKEN_ARCHIVED",
           `${message}, archived; restore it with POST ${API_V1_PREFIX}/combos/${archivedId}/restore`,
+          { archived_id: archivedId },
         )
       : new ConflictError("NAME_TAKEN", message);
   }
@@ -158,8 +160,9 @@ export function makeComboService({ db }: { db: Pool }) {
         const items = await makeItemRepository(tx).lockSharedMany(itemIds);
         const categories =
           await makeCategoryRepository(tx).lockSharedMany(swapCategoryIds);
-        const blocked = [...items, ...categories]
-          .filter((row) => row.archived)
+        const archivedItems = archivedRefs(items);
+        const archivedCategories = archivedRefs(categories);
+        const blocked = [...archivedItems, ...archivedCategories]
           .map((row) => row.name)
           .sort();
 
@@ -167,6 +170,12 @@ export function makeComboService({ db }: { db: Pool }) {
           throw new ConflictError(
             "RESTORE_BLOCKED",
             `combo cannot be restored while these are archived: ${blocked.join(", ")}`,
+            {
+              ...(archivedItems.length > 0 ? { items: archivedItems } : {}),
+              ...(archivedCategories.length > 0
+                ? { categories: archivedCategories }
+                : {}),
+            },
           );
         }
 
@@ -176,6 +185,13 @@ export function makeComboService({ db }: { db: Pool }) {
       });
     },
   };
+}
+
+function archivedRefs(rows: (Ref & { archived: boolean })[]): Ref[] {
+  return rows
+    .filter((row) => row.archived)
+    .map(({ id, name }) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function checkReferences(
@@ -196,6 +212,7 @@ async function checkReferences(
     throw new UnprocessableError(
       "INVALID_REFERENCE",
       `items ${missingItems.join(", ")} do not exist or are archived`,
+      { ids: missingItems },
     );
   }
 
@@ -218,6 +235,7 @@ async function checkReferences(
     throw new UnprocessableError(
       "INVALID_REFERENCE",
       `swap categories ${missingCategories.join(", ")} do not exist`,
+      { ids: missingCategories },
     );
   }
 
@@ -239,6 +257,7 @@ function suggestion(
     throw new UnprocessableError(
       "SUGGESTED_PRICE_TOO_HIGH",
       `the suggested price ${cents} is above the ceiling; set price_cents by hand`,
+      { suggested_price_cents: cents },
     );
   }
 

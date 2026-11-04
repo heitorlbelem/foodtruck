@@ -2,6 +2,10 @@ import type { ErrorCode } from "./error-codes.ts";
 
 export type Ref = { id: string; name: string };
 
+export function names(refs: Ref[]): string {
+  return refs.map((ref) => ref.name).join(", ");
+}
+
 export type ErrorDetails = {
   archived_id?: string;
   items?: Ref[];

@@ -8,6 +8,7 @@ import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
+  names,
   NotFoundError,
   UnprocessableError,
 } from "../../shared/errors.ts";
@@ -47,6 +48,7 @@ export function makeItemService({ db }: { db: Pool }) {
         ? new ConflictError(
             "NAME_TAKEN_ARCHIVED",
             `${message}, archived; restore it with POST ${API_V1_PREFIX}/items/${archivedId}/restore`,
+            { archived_id: archivedId },
           )
         : new ConflictError("NAME_TAKEN", message);
     }
@@ -55,6 +57,7 @@ export function makeItemService({ db }: { db: Pool }) {
       return new UnprocessableError(
         "INVALID_REFERENCE",
         `category ${input.category_id} does not exist`,
+        { ids: [input.category_id!] },
       );
     }
 
@@ -115,12 +118,13 @@ export function makeItemService({ db }: { db: Pool }) {
         }
 
         const combos =
-          await makeComboRepository(tx).liveNamesContainingItem(id);
+          await makeComboRepository(tx).liveCombosContainingItem(id);
 
         if (combos.length > 0) {
           throw new ConflictError(
             "IN_USE",
-            `item is still used by combos: ${combos.join(", ")}`,
+            `item is still used by combos: ${names(combos)}`,
+            { combos },
           );
         }
 
@@ -149,6 +153,7 @@ export function makeItemService({ db }: { db: Pool }) {
           throw new ConflictError(
             "RESTORE_BLOCKED",
             `item cannot be restored while these are archived: ${category!.name}`,
+            { categories: [{ id: category!.id, name: category!.name }] },
           );
         }
 
@@ -169,6 +174,7 @@ async function checkLiveCategory(
     throw new UnprocessableError(
       "INVALID_REFERENCE",
       `category ${categoryId} does not exist or is archived`,
+      { ids: [categoryId] },
     );
   }
 }
@@ -195,6 +201,7 @@ async function replaceChildren(
       throw new UnprocessableError(
         "INVALID_REFERENCE",
         `addons ${unavailable.join(", ")} do not exist or are archived`,
+        { ids: unavailable },
       );
     }
 

@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { isUniqueViolation } from "../../infra/db/errors.ts";
 import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
-import { ConflictError, NotFoundError } from "../../shared/errors.ts";
+import { ConflictError, NotFoundError, names } from "../../shared/errors.ts";
 import { makeItemRepository } from "../items/items.repository.ts";
 import {
   type Addon,
@@ -22,6 +22,7 @@ export function makeAddonService({ db }: { db: Pool }) {
       ? new ConflictError(
           "NAME_TAKEN_ARCHIVED",
           `${message}, archived; restore it with POST ${API_V1_PREFIX}/addons/${archivedId}/restore`,
+          { archived_id: archivedId },
         )
       : new ConflictError("NAME_TAKEN", message);
   }
@@ -68,12 +69,13 @@ export function makeAddonService({ db }: { db: Pool }) {
           throw new NotFoundError("ADDON_NOT_FOUND", "addon not found");
         }
 
-        const items = await makeItemRepository(tx).liveNamesAcceptingAddon(id);
+        const items = await makeItemRepository(tx).liveItemsAcceptingAddon(id);
 
         if (items.length > 0) {
           throw new ConflictError(
             "IN_USE",
-            `addon is still used by items: ${items.join(", ")}`,
+            `addon is still used by items: ${names(items)}`,
+            { items },
           );
         }
 
