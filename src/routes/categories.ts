@@ -13,7 +13,7 @@ import { conflict, notFound } from "./http-errors.ts";
 type CategoryBody = { name?: string; sort_order?: number };
 type IdParams = { id: string };
 
-const categorySchema = {
+export const categorySchema = {
   type: "object",
   properties: {
     id: { type: "string" },

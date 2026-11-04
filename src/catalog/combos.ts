@@ -81,7 +81,7 @@ export function suggestedPriceCents(
 }
 
 export async function listCombos(
-  db: Pool,
+  db: Pool | PoolClient,
   foodtruckId: string,
 ): Promise<Combo[]> {
   const { rows } = await db.query<ComboRow>(

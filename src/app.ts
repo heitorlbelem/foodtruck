@@ -9,6 +9,7 @@ import { categoryRoutes } from "./routes/categories.ts";
 import { comboRoutes } from "./routes/combos.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { itemRoutes } from "./routes/items.ts";
+import { menuRoutes } from "./routes/menu.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -57,6 +58,7 @@ export function buildApp(
   app.register(itemRoutes);
   app.register(addonRoutes);
   app.register(comboRoutes);
+  app.register(menuRoutes);
 
   return app;
 }

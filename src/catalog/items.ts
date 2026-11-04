@@ -41,7 +41,7 @@ const LIVE_ADDONS_OF_ITEM = `
    ORDER BY addon.name`;
 
 export async function listItems(
-  db: Pool,
+  db: Pool | PoolClient,
   foodtruckId: string,
 ): Promise<Item[]> {
   const { rows } = await db.query<Item>(

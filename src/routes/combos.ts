@@ -15,7 +15,7 @@ import { conflict, notFound, unprocessable } from "./http-errors.ts";
 
 type IdParams = { id: string };
 
-const comboSchema = {
+export const comboSchema = {
   type: "object",
   properties: {
     id: { type: "string" },

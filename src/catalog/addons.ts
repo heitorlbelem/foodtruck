@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
 import type { ArchiveResult } from "./items.ts";
@@ -10,7 +10,7 @@ type AddonFields = { name: string; price_cents: number };
 const COLUMNS = "id, name, price_cents";
 
 export async function listAddons(
-  db: Pool,
+  db: Pool | PoolClient,
   foodtruckId: string,
 ): Promise<Addon[]> {
   const { rows } = await db.query<Addon>(
