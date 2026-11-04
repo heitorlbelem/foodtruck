@@ -7,9 +7,10 @@ import { createPool } from "./infra/db/pool.ts";
 import { addonRoutes } from "./routes/addons.ts";
 import { categoryRoutes } from "./routes/categories.ts";
 import { comboRoutes } from "./routes/combos.ts";
-import { healthRoutes } from "./routes/health.ts";
 import { itemRoutes } from "./routes/items.ts";
 import { menuRoutes } from "./routes/menu.ts";
+import { healthRoutes } from "./modules/health/health.routes.ts";
+import { AppError } from "./shared/errors.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -39,7 +40,13 @@ export function buildApp(
       .send(errorBody(404, `Route ${request.method}:${request.url} not found`)),
   );
 
-  app.setErrorHandler((error: FastifyError, request, reply) => {
+  app.setErrorHandler((error: FastifyError | AppError, request, reply) => {
+    if (error instanceof AppError) {
+      return reply
+        .code(error.statusCode)
+        .send(errorBody(error.statusCode, error.message));
+    }
+
     const statusCode = error.statusCode ?? 500;
 
     if (statusCode >= 500) {
