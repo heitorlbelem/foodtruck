@@ -103,8 +103,14 @@ export async function categoryRoutes(app: FastifyInstance) {
         throw notFound("category not found");
       }
 
-      if (!result.deleted) {
+      if (!result.deleted && result.reason === "has_items") {
         throw conflict(`category "${result.name}" still has items`);
+      }
+
+      if (!result.deleted) {
+        throw conflict(
+          `category "${result.name}" is the swap category of ${result.combos.join(", ")}`,
+        );
       }
 
       return reply.code(204).send();
