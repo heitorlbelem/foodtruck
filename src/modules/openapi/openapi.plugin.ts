@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 
 import { errorSchema } from "../../shared/schemas.ts";
 import { addonSchema } from "../addons/addons.schemas.ts";
+import { authUserSchema, tokenPairSchema } from "../auth/auth.schemas.ts";
 import { categorySchema } from "../categories/categories.schemas.ts";
 import { comboSchema } from "../combos/combos.schemas.ts";
 import { itemSchema } from "../items/items.schemas.ts";
@@ -13,6 +14,8 @@ import { GUIDE, TAGS } from "./guide.ts";
 export function registerOpenapi(app: FastifyInstance) {
   for (const schema of [
     errorSchema,
+    authUserSchema,
+    tokenPairSchema,
     categorySchema,
     addonSchema,
     itemSchema,

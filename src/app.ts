@@ -4,6 +4,8 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
 import type { Pool } from "pg";
 
 import { createPool } from "./infra/db/pool.ts";
+import { authRoutes } from "./modules/auth/auth.routes.ts";
+import { registerAuth } from "./modules/auth/auth.plugin.ts";
 import { addonRoutes } from "./modules/addons/addons.routes.ts";
 import { categoryRoutes } from "./modules/categories/categories.routes.ts";
 import { comboRoutes } from "./modules/combos/combos.routes.ts";
@@ -52,6 +54,14 @@ export function buildApp(
 
   app.setErrorHandler((error: FastifyError | AppError, request, reply) => {
     if (error instanceof AppError) {
+      if (error.statusCode === 401) {
+        reply.header("WWW-Authenticate", "Bearer");
+      }
+
+      if (error.details?.retry_after_seconds !== undefined) {
+        reply.header("Retry-After", String(error.details.retry_after_seconds));
+      }
+
       return reply
         .code(error.statusCode)
         .send(
@@ -77,9 +87,11 @@ export function buildApp(
   });
 
   registerOpenapi(app);
+  registerAuth(app);
   app.register(healthRoutes);
   app.register(
     async (v1) => {
+      v1.register(authRoutes);
       v1.register(categoryRoutes);
       v1.register(itemRoutes);
       v1.register(addonRoutes);

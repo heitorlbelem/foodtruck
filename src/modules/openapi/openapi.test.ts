@@ -76,7 +76,11 @@ describe("openapi document", () => {
         TAGS.map((tag) => tag.name),
         label,
       ).toContain(op.tags![0]);
-      if (url === "/api/v1/menu") {
+      if (
+        url === "/api/v1/menu" ||
+        url === "/api/v1/auth/me" ||
+        url === "/api/v1/auth/logout"
+      ) {
         expect(op.responses["400"], label).toBeUndefined();
       } else {
         expect(errorEnum(op.responses["400"]), label).toEqual([...ERROR_CODES]);
@@ -90,7 +94,8 @@ describe("openapi document", () => {
 
       if (
         (method === "post" || method === "patch") &&
-        !url.endsWith("/restore")
+        !url.endsWith("/restore") &&
+        !url.endsWith("/auth/logout")
       ) {
         expect(op.responses["413"], label).toBeDefined();
         expect(op.responses["415"], label).toBeDefined();

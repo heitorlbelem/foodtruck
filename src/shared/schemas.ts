@@ -80,6 +80,7 @@ export const errorSchema = {
         categories: refList,
         ids: { type: "array", items: idField },
         suggested_price_cents: centsField,
+        retry_after_seconds: { type: "integer" },
       },
       additionalProperties: false,
     },
@@ -114,7 +115,7 @@ export const BAD_REQUEST =
 
 export const LIST_BAD_REQUEST = `${BAD_REQUEST} As listagens também recusam qualquer parâmetro de query desconhecido: só \`archived\` é aceito.`;
 
-type ErrorStatus = 400 | 404 | 409 | 422;
+type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429;
 
 const INTERNAL_ERROR =
   "`INTERNAL_ERROR`: erro inesperado no servidor. Mostre uma mensagem genérica e ofereça tentar de novo.";

@@ -13,6 +13,7 @@ export type ErrorDetails = {
   categories?: Ref[];
   ids?: string[];
   suggested_price_cents?: number;
+  retry_after_seconds?: number;
 };
 
 export class AppError extends Error {
