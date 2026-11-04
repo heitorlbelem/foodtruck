@@ -59,6 +59,18 @@ describe("error codes", () => {
     expect(response.json().code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
+  it("answers UNSUPPORTED_MEDIA_TYPE for text/plain", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/addons",
+      headers: { "content-type": "text/plain" },
+      payload: "Bacon",
+    });
+
+    expect(response.statusCode).toBe(415);
+    expect(response.json().code).toBe("UNSUPPORTED_MEDIA_TYPE");
+  });
+
   it("answers NOT_FOUND for an unknown route", async () => {
     const response = await app.inject({ method: "GET", url: "/nowhere" });
 

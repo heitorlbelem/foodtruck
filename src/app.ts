@@ -31,6 +31,7 @@ export function buildApp(
     ...opts,
   });
 
+  app.removeContentTypeParser("text/plain");
   app.decorate("db", db);
   app.db.on("error", (error) =>
     app.log.error({ err: error }, "idle database client error"),
