@@ -16,7 +16,7 @@ export function buildApp(
   opts: FastifyServerOptions = {},
   db: Pool = createPool(),
 ) {
-  const app = Fastify(opts);
+  const app = Fastify({ trustProxy: true, ...opts });
 
   app.decorate("db", db);
   app.db.on("error", (error) =>
