@@ -58,8 +58,6 @@ export type DeleteCategoryResult =
   | { deleted: false; reason: "not_found" }
   | { deleted: false; reason: "has_items"; name: string };
 
-// A category that holds items — archived ones included, since they stay in
-// the table — is refused by the items foreign key.
 export async function deleteCategory(
   db: Pool,
   id: string,

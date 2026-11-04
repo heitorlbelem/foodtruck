@@ -11,9 +11,6 @@ type ItemFields = { category_id: string; name: string; price_cents: number };
 
 const COLUMNS = "id, category_id, name, price_cents";
 
-// Archived items stay in the table because sold order lines will point at
-// them; every read and write below only sees the live ones.
-
 export async function listItems(
   db: Pool,
   foodtruckId: string,

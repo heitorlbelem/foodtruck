@@ -32,8 +32,6 @@ const bodyProperties = {
   price_cents: { type: "integer", minimum: 0 },
 };
 
-// The uuid format turns a malformed id into a 400 before any SQL runs, instead
-// of a 500 carrying Postgres' cast error.
 const idParams = {
   type: "object",
   properties: { id: { type: "string", format: "uuid" } },
@@ -117,7 +115,6 @@ function rethrowWriteError(body: Partial<ItemBody>) {
       throw conflict(`an item named "${body.name}" already exists`);
     }
 
-    // The only foreign key an item write can break is its category.
     if (isForeignKeyViolation(error)) {
       throw unprocessable(`category ${body.category_id} does not exist`);
     }

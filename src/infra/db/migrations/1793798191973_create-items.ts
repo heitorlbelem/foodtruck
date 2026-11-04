@@ -15,8 +15,6 @@ export async function up(pgm: MigrationBuilder): Promise<void> {
         references: "foodtrucks",
         onDelete: "CASCADE",
       },
-      // No onDelete: items are archived, never deleted, so a category that
-      // still holds any of them cannot go away.
       category_id: { type: "uuid", notNull: true, references: "categories" },
       name: { type: "text", notNull: true },
       price_cents: {
