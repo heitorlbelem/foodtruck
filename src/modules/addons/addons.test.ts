@@ -99,6 +99,7 @@ describe("addons", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
     expect(response.json().message).toContain("Bacon");
     expect(await countAddons()).toBe(1);
   });
@@ -112,6 +113,7 @@ describe("addons", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
   });
 
   it("is a separate catalog from items", async () => {
@@ -171,6 +173,7 @@ describe("addons", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ADDON_NOT_FOUND");
     expect(response.json().message).toBe("addon not found");
   });
 
@@ -188,6 +191,7 @@ describe("addons", () => {
     const response = await inject("DELETE", `/addons/${randomUUID()}`);
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ADDON_NOT_FOUND");
     expect(response.json().message).toBe("addon not found");
   });
 
@@ -200,6 +204,7 @@ describe("addons", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ADDON_NOT_FOUND");
   });
 });
 
@@ -227,6 +232,7 @@ describe("archiving an addon an item accepts", () => {
     const response = await inject("DELETE", `/addons/${bacon.id}`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("IN_USE");
     expect(response.json().message).toContain("Hambúrguer");
     expect((await inject("GET", "/addons")).json()).toHaveLength(1);
   });

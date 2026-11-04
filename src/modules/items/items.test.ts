@@ -135,6 +135,7 @@ describe("items", () => {
     const response = await inject("POST", "/items", body);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
     expect(response.json().message).toContain("Hambúrguer");
     expect(await countItems()).toBe(1);
   });
@@ -147,6 +148,7 @@ describe("items", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(await countItems()).toBe(0);
   });
 
@@ -189,6 +191,7 @@ describe("items", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
   });
 
   it("answers 404 when changing an item that does not exist", async () => {
@@ -197,6 +200,7 @@ describe("items", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ITEM_NOT_FOUND");
     expect(response.json().message).toBe("item not found");
   });
 
@@ -223,6 +227,7 @@ describe("items", () => {
     const response = await inject("DELETE", `/items/${randomUUID()}`);
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ITEM_NOT_FOUND");
     expect(response.json().message).toBe("item not found");
   });
 
@@ -240,6 +245,7 @@ describe("items", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ITEM_NOT_FOUND");
     expect(response.json().message).toBe("item not found");
   });
 });
@@ -256,6 +262,7 @@ describe("archiving a category that holds items", () => {
     const response = await inject("DELETE", `/categories/${category.id}`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("IN_USE");
     expect(response.json().message).toContain("Lanches");
     expect(response.json().message).toContain("Hambúrguer");
   });
@@ -451,6 +458,7 @@ describe("addons an item accepts", () => {
     );
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(unknown);
     expect(await countItems()).toBe(0);
   });
@@ -466,6 +474,7 @@ describe("addons an item accepts", () => {
     );
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(bacon.id);
     expect(await countItems()).toBe(0);
   });
@@ -481,6 +490,7 @@ describe("addons an item accepts", () => {
     );
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(unknown);
     expect(response.json().message).not.toContain(bacon.id);
   });
@@ -554,6 +564,7 @@ describe("addons an item accepts", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect((await inject("GET", "/items")).json()[0]).toMatchObject({
       price_cents: 2500,
       addons: [{ id: bacon.id }],
@@ -606,6 +617,7 @@ describe("archiving an item a combo depends on", () => {
     const response = await inject("DELETE", `/items/${soda.id}`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("IN_USE");
     expect(response.json().message).toContain("Combo Clássico");
     expect((await inject("GET", "/items")).json()).toHaveLength(2);
   });

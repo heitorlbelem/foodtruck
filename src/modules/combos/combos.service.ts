@@ -73,11 +73,12 @@ export function makeComboService({ db }: { db: Pool }) {
     const archivedId = await combos.findArchivedIdByName(foodtruckId, name!);
     const message = `a combo named "${name}" already exists`;
 
-    return new ConflictError(
-      archivedId
-        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/combos/${archivedId}/restore`
-        : message,
-    );
+    return archivedId
+      ? new ConflictError(
+          "NAME_TAKEN_ARCHIVED",
+          `${message}, archived; restore it with POST ${API_V1_PREFIX}/combos/${archivedId}/restore`,
+        )
+      : new ConflictError("NAME_TAKEN", message);
   }
 
   return {
@@ -117,7 +118,7 @@ export function makeComboService({ db }: { db: Pool }) {
           const combo = await repository.lock(id);
 
           if (!combo || combo.archived) {
-            throw new NotFoundError("combo not found");
+            throw new NotFoundError("COMBO_NOT_FOUND", "combo not found");
           }
 
           if (input.components) {
@@ -136,7 +137,7 @@ export function makeComboService({ db }: { db: Pool }) {
 
     async archive(id: string): Promise<void> {
       if (!(await combos.archive(id))) {
-        throw new NotFoundError("combo not found");
+        throw new NotFoundError("COMBO_NOT_FOUND", "combo not found");
       }
     },
 
@@ -146,11 +147,11 @@ export function makeComboService({ db }: { db: Pool }) {
         const combo = await repository.lock(id);
 
         if (!combo) {
-          throw new NotFoundError("combo not found");
+          throw new NotFoundError("COMBO_NOT_FOUND", "combo not found");
         }
 
         if (!combo.archived) {
-          throw new ConflictError("combo is not archived");
+          throw new ConflictError("NOT_ARCHIVED", "combo is not archived");
         }
 
         const { itemIds, swapCategoryIds } = await repository.references(id);
@@ -164,6 +165,7 @@ export function makeComboService({ db }: { db: Pool }) {
 
         if (blocked.length > 0) {
           throw new ConflictError(
+            "RESTORE_BLOCKED",
             `combo cannot be restored while these are archived: ${blocked.join(", ")}`,
           );
         }
@@ -192,6 +194,7 @@ async function checkReferences(
 
   if (missingItems.length > 0) {
     throw new UnprocessableError(
+      "INVALID_REFERENCE",
       `items ${missingItems.join(", ")} do not exist or are archived`,
     );
   }
@@ -213,6 +216,7 @@ async function checkReferences(
 
   if (missingCategories.length > 0) {
     throw new UnprocessableError(
+      "INVALID_REFERENCE",
       `swap categories ${missingCategories.join(", ")} do not exist`,
     );
   }
@@ -233,6 +237,7 @@ function suggestion(
 
   if (cents > MAX_PRICE_CENTS) {
     throw new UnprocessableError(
+      "SUGGESTED_PRICE_TOO_HIGH",
       `the suggested price ${cents} is above the ceiling; set price_cents by hand`,
     );
   }

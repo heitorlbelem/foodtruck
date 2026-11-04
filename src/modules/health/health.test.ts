@@ -108,6 +108,7 @@ describe("error responses", () => {
     expect(response.json()).toEqual({
       status_code: 404,
       error: "Not Found",
+      code: "NOT_FOUND",
       message: "Route GET:/nao-existe not found",
     });
   });

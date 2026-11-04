@@ -82,6 +82,7 @@ describe("restoring an archived item", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN_ARCHIVED");
     expect(response.json().message).toContain("archived");
     expect(response.json().message).toContain(
       `POST /api/v1/items/${burger.id}/restore`,
@@ -96,6 +97,7 @@ describe("restoring an archived item", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
     expect(response.json().message).not.toContain("restore");
   });
 
@@ -103,6 +105,7 @@ describe("restoring an archived item", () => {
     const response = await inject("POST", `/items/${burger.id}/restore`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NOT_ARCHIVED");
     expect(response.json().message).toContain("not archived");
   });
 
@@ -110,6 +113,7 @@ describe("restoring an archived item", () => {
     const response = await inject("POST", `/items/${randomUUID()}/restore`);
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("ITEM_NOT_FOUND");
   });
 
   it("refuses while its category is archived, naming it", async () => {
@@ -119,6 +123,7 @@ describe("restoring an archived item", () => {
     const response = await inject("POST", `/items/${soda.id}/restore`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("RESTORE_BLOCKED");
     expect(response.json().message).toContain("Bebidas");
   });
 });
@@ -135,6 +140,7 @@ describe("restoring an archived addon", () => {
     const response = await inject("POST", `/addons/${bacon.id}/restore`);
 
     expect(conflict.statusCode).toBe(409);
+    expect(conflict.json().code).toBe("NAME_TAKEN_ARCHIVED");
     expect(conflict.json().message).toContain(
       `POST /api/v1/addons/${bacon.id}/restore`,
     );
@@ -150,6 +156,7 @@ describe("restoring an archived addon", () => {
     const response = await inject("POST", `/addons/${bacon.id}/restore`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NOT_ARCHIVED");
   });
 });
 
@@ -188,6 +195,7 @@ describe("restoring an archived combo", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN_ARCHIVED");
     expect(response.json().message).toContain(
       `POST /api/v1/combos/${combo.id}/restore`,
     );
@@ -200,6 +208,7 @@ describe("restoring an archived combo", () => {
     const response = await inject("POST", `/combos/${combo.id}/restore`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("RESTORE_BLOCKED");
     expect(response.json().message).toContain("Refrigerante");
   });
 
@@ -217,6 +226,7 @@ describe("restoring an archived combo", () => {
     const response = await inject("POST", `/combos/${combo.id}/restore`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("RESTORE_BLOCKED");
     expect(response.json().message).toContain("Sobremesas");
   });
 });
@@ -244,6 +254,7 @@ describe("archiving a category", () => {
     const response = await inject("DELETE", `/categories/${snacks.id}`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("IN_USE");
     expect(response.json().message).toContain("Picanha");
     expect(response.json().message).toContain("Combo Picanha");
   });
@@ -259,6 +270,7 @@ describe("archiving a category", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(desserts.id);
   });
 
@@ -271,6 +283,7 @@ describe("archiving a category", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
   });
 
   it("refuses an archived swap category in a combo with 422", async () => {
@@ -285,6 +298,7 @@ describe("archiving a category", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
   });
 
   it("answers 404 when renaming an archived category", async () => {
@@ -296,15 +310,17 @@ describe("archiving a category", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("CATEGORY_NOT_FOUND");
   });
 
   it("answers 404 when archiving it twice", async () => {
     const desserts = await post("/categories", { name: "Sobremesas" });
     await inject("DELETE", `/categories/${desserts.id}`);
 
-    expect(
-      (await inject("DELETE", `/categories/${desserts.id}`)).statusCode,
-    ).toBe(404);
+    const response = await inject("DELETE", `/categories/${desserts.id}`);
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("CATEGORY_NOT_FOUND");
   });
 
   it("restores it, and points the 409 on its name at the restore", async () => {
@@ -317,6 +333,7 @@ describe("archiving a category", () => {
     const response = await inject("POST", `/categories/${desserts.id}/restore`);
 
     expect(conflict.statusCode).toBe(409);
+    expect(conflict.json().code).toBe("NAME_TAKEN_ARCHIVED");
     expect(conflict.json().message).toContain(
       `POST /api/v1/categories/${desserts.id}/restore`,
     );

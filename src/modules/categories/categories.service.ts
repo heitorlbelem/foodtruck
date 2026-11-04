@@ -20,11 +20,12 @@ export function makeCategoryService({ db }: { db: Pool }) {
     const archivedId = await categories.findArchivedIdByName(foodtruckId, name);
     const message = `a category named "${name}" already exists`;
 
-    return new ConflictError(
-      archivedId
-        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/categories/${archivedId}/restore`
-        : message,
-    );
+    return archivedId
+      ? new ConflictError(
+          "NAME_TAKEN_ARCHIVED",
+          `${message}, archived; restore it with POST ${API_V1_PREFIX}/categories/${archivedId}/restore`,
+        )
+      : new ConflictError("NAME_TAKEN", message);
   }
 
   return {
@@ -54,7 +55,7 @@ export function makeCategoryService({ db }: { db: Pool }) {
       }
 
       if (!category) {
-        throw new NotFoundError("category not found");
+        throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
       }
 
       return category;
@@ -65,7 +66,7 @@ export function makeCategoryService({ db }: { db: Pool }) {
         const category = await makeCategoryRepository(tx).lock(id);
 
         if (!category || category.archived) {
-          throw new NotFoundError("category not found");
+          throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
         }
 
         const items = await makeItemRepository(tx).liveNamesInCategory(id);
@@ -79,6 +80,7 @@ export function makeCategoryService({ db }: { db: Pool }) {
           ];
 
           throw new ConflictError(
+            "IN_USE",
             `category "${category.name}" is still used by ${holders.join("; ")}`,
           );
         }
@@ -93,11 +95,11 @@ export function makeCategoryService({ db }: { db: Pool }) {
         const category = await repository.lock(id);
 
         if (!category) {
-          throw new NotFoundError("category not found");
+          throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
         }
 
         if (!category.archived) {
-          throw new ConflictError("category is not archived");
+          throw new ConflictError("NOT_ARCHIVED", "category is not archived");
         }
 
         return repository.restore(id);
