@@ -16,7 +16,11 @@ function inject(
   url: string,
   payload?: object,
 ) {
-  return app.inject({ method, url, ...(payload ? { payload } : {}) });
+  return app.inject({
+    method,
+    url: `/api/v1${url}`,
+    ...(payload ? { payload } : {}),
+  });
 }
 
 describe("categories", () => {

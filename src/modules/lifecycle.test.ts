@@ -15,7 +15,11 @@ function inject(
   url: string,
   payload?: object,
 ) {
-  return app.inject({ method, url, ...(payload ? { payload } : {}) });
+  return app.inject({
+    method,
+    url: `/api/v1${url}`,
+    ...(payload ? { payload } : {}),
+  });
 }
 
 async function post(url: string, body: object) {
@@ -79,7 +83,9 @@ describe("restoring an archived item", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().message).toContain("archived");
-    expect(response.json().message).toContain(`/items/${burger.id}/restore`);
+    expect(response.json().message).toContain(
+      `POST /api/v1/items/${burger.id}/restore`,
+    );
   });
 
   it("keeps the plain 409 for a live name", async () => {
@@ -129,7 +135,9 @@ describe("restoring an archived addon", () => {
     const response = await inject("POST", `/addons/${bacon.id}/restore`);
 
     expect(conflict.statusCode).toBe(409);
-    expect(conflict.json().message).toContain(`/addons/${bacon.id}/restore`);
+    expect(conflict.json().message).toContain(
+      `POST /api/v1/addons/${bacon.id}/restore`,
+    );
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       id: bacon.id,
@@ -180,7 +188,9 @@ describe("restoring an archived combo", () => {
     });
 
     expect(response.statusCode).toBe(409);
-    expect(response.json().message).toContain(`/combos/${combo.id}/restore`);
+    expect(response.json().message).toContain(
+      `POST /api/v1/combos/${combo.id}/restore`,
+    );
   });
 
   it("refuses while a component item is archived, naming it", async () => {
@@ -308,7 +318,7 @@ describe("archiving a category", () => {
 
     expect(conflict.statusCode).toBe(409);
     expect(conflict.json().message).toContain(
-      `/categories/${desserts.id}/restore`,
+      `POST /api/v1/categories/${desserts.id}/restore`,
     );
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({

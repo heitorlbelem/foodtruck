@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { isUniqueViolation } from "../../infra/db/errors.ts";
+import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
@@ -74,7 +75,7 @@ export function makeComboService({ db }: { db: Pool }) {
 
     return new ConflictError(
       archivedId
-        ? `${message}, archived; restore it with POST /combos/${archivedId}/restore`
+        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/combos/${archivedId}/restore`
         : message,
     );
   }

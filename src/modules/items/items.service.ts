@@ -4,6 +4,7 @@ import {
   isForeignKeyViolation,
   isUniqueViolation,
 } from "../../infra/db/errors.ts";
+import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
@@ -44,7 +45,7 @@ export function makeItemService({ db }: { db: Pool }) {
 
       return new ConflictError(
         archivedId
-          ? `${message}, archived; restore it with POST /items/${archivedId}/restore`
+          ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/items/${archivedId}/restore`
           : message,
       );
     }

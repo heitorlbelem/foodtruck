@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 
 import { isUniqueViolation } from "../../infra/db/errors.ts";
+import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import { ConflictError, NotFoundError } from "../../shared/errors.ts";
 import { makeComboRepository } from "../combos/combos.repository.ts";
@@ -21,7 +22,7 @@ export function makeCategoryService({ db }: { db: Pool }) {
 
     return new ConflictError(
       archivedId
-        ? `${message}, archived; restore it with POST /categories/${archivedId}/restore`
+        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/categories/${archivedId}/restore`
         : message,
     );
   }

@@ -10,6 +10,7 @@ import { comboRoutes } from "./modules/combos/combos.routes.ts";
 import { healthRoutes } from "./modules/health/health.routes.ts";
 import { itemRoutes } from "./modules/items/items.routes.ts";
 import { menuRoutes } from "./modules/menu/menu.routes.ts";
+import { API_V1_PREFIX } from "./shared/api.ts";
 import { AppError } from "./shared/errors.ts";
 
 declare module "fastify" {
@@ -61,11 +62,16 @@ export function buildApp(
   });
 
   app.register(healthRoutes);
-  app.register(categoryRoutes);
-  app.register(itemRoutes);
-  app.register(addonRoutes);
-  app.register(comboRoutes);
-  app.register(menuRoutes);
+  app.register(
+    async (v1) => {
+      v1.register(categoryRoutes);
+      v1.register(itemRoutes);
+      v1.register(addonRoutes);
+      v1.register(comboRoutes);
+      v1.register(menuRoutes);
+    },
+    { prefix: API_V1_PREFIX },
+  );
 
   return app;
 }
