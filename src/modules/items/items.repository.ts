@@ -12,6 +12,14 @@ export type Item = {
 
 export type ItemRow = Omit<Item, "ingredients" | "addons">;
 
+type ItemLock = {
+  id: string;
+  name: string;
+  price_cents: number;
+  archived: boolean;
+  foodtruck_id: string;
+};
+
 type ItemFields = { category_id: string; name: string; price_cents: number };
 
 const COLUMNS = "id, category_id, name, price_cents";
@@ -98,6 +106,19 @@ export function makeItemRepository(db: Queryable) {
       );
 
       return rows[0];
+    },
+
+    async lockSharedMany(ids: string[]): Promise<ItemLock[]> {
+      const { rows } = await db.query<ItemLock>(
+        `SELECT id, name, price_cents, archived_at IS NOT NULL AS archived,
+                foodtruck_id
+           FROM items
+          WHERE id = ANY($1::uuid[])
+            FOR SHARE`,
+        [ids],
+      );
+
+      return rows;
     },
 
     async archive(id: string): Promise<void> {

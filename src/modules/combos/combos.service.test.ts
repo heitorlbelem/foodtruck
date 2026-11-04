@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { suggestedPriceCents } from "./combos.ts";
+import { suggestedPriceCents } from "./combos.service.ts";
 
 describe("suggestedPriceCents", () => {
   it("suggests the sum of the component prices times quantity", () => {

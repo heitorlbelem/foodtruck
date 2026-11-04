@@ -2,6 +2,13 @@ import type { Queryable } from "../../infra/db/pool.ts";
 
 export type Category = { id: string; name: string; sort_order: number };
 
+type CategoryLock = {
+  id: string;
+  name: string;
+  archived: boolean;
+  foodtruck_id: string;
+};
+
 const COLUMNS = "id, name, sort_order";
 
 export function makeCategoryRepository(db: Queryable) {
@@ -61,17 +68,9 @@ export function makeCategoryRepository(db: Queryable) {
       return rows[0];
     },
 
-    async lockShared(
-      id: string,
-    ): Promise<
-      { name: string; archived: boolean; foodtruck_id: string } | undefined
-    > {
-      const { rows } = await db.query<{
-        name: string;
-        archived: boolean;
-        foodtruck_id: string;
-      }>(
-        `SELECT name, archived_at IS NOT NULL AS archived, foodtruck_id
+    async lockShared(id: string): Promise<CategoryLock | undefined> {
+      const { rows } = await db.query<CategoryLock>(
+        `SELECT id, name, archived_at IS NOT NULL AS archived, foodtruck_id
            FROM categories
           WHERE id = $1
             FOR SHARE`,
@@ -79,6 +78,18 @@ export function makeCategoryRepository(db: Queryable) {
       );
 
       return rows[0];
+    },
+
+    async lockSharedMany(ids: string[]): Promise<CategoryLock[]> {
+      const { rows } = await db.query<CategoryLock>(
+        `SELECT id, name, archived_at IS NOT NULL AS archived, foodtruck_id
+           FROM categories
+          WHERE id = ANY($1::uuid[])
+            FOR SHARE`,
+        [ids],
+      );
+
+      return rows;
     },
 
     async archive(id: string): Promise<void> {

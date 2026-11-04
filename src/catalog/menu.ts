@@ -9,7 +9,8 @@ import {
   type Category,
   makeCategoryRepository,
 } from "../modules/categories/categories.repository.ts";
-import { type Combo, listCombos } from "./combos.ts";
+import { makeComboRepository } from "../modules/combos/combos.repository.ts";
+import { type Combo, toCombo } from "../modules/combos/combos.service.ts";
 import {
   type Item,
   makeItemRepository,
@@ -28,7 +29,9 @@ export async function readMenu(db: Pool, foodtruckId: string): Promise<Menu> {
     const categories = await makeCategoryRepository(tx).list(foodtruckId);
     const items = await makeItemRepository(tx).list(foodtruckId);
     const addons = await makeAddonRepository(tx).list(foodtruckId);
-    const combos = await listCombos(tx, foodtruckId);
+    const combos = (await makeComboRepository(tx).list(foodtruckId)).map(
+      toCombo,
+    );
 
     return {
       categories: categories.map((category) => ({
