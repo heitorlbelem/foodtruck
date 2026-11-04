@@ -78,8 +78,18 @@ describe("openapi document", () => {
       ).toContain(op.tags![0]);
       expect(errorEnum(op.responses["400"]), label).toEqual([...ERROR_CODES]);
 
+      expect(errorEnum(op.responses["500"]), label).toEqual([...ERROR_CODES]);
+
       if (url.includes(":id")) {
         expect(op.responses["404"], label).toBeDefined();
+      }
+
+      if (
+        (method === "post" || method === "patch") &&
+        !url.endsWith("/restore")
+      ) {
+        expect(op.responses["413"], label).toBeDefined();
+        expect(op.responses["415"], label).toBeDefined();
       }
     }
   });

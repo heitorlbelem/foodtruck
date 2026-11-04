@@ -123,10 +123,13 @@ export const createComboSchema = {
   },
   response: {
     201: { description: "Combo criado.", $ref: "Combo#" },
-    ...errors({
-      409: NAME_TAKEN,
-      422: `${INVALID_REFERENCE} \`SUGGESTED_PRICE_TOO_HIGH\`: sem \`price_cents\`, a soma passou do teto; \`details.suggested_price_cents\` traz a soma e o preço precisa ser informado.`,
-    }),
+    ...errors(
+      {
+        409: NAME_TAKEN,
+        422: `${INVALID_REFERENCE} \`SUGGESTED_PRICE_TOO_HIGH\`: sem \`price_cents\`, a soma passou do teto; \`details.suggested_price_cents\` traz a soma e o preço precisa ser informado.`,
+      },
+      { body: true },
+    ),
   },
 };
 
@@ -143,7 +146,10 @@ export const updateComboSchema = {
   },
   response: {
     200: { description: "Combo alterado.", $ref: "Combo#" },
-    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN, 422: INVALID_REFERENCE }),
+    ...errors(
+      { 404: NOT_FOUND, 409: NAME_TAKEN, 422: INVALID_REFERENCE },
+      { body: true },
+    ),
   },
 };
 

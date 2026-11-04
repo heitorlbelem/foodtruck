@@ -60,7 +60,7 @@ export const createAddonSchema = {
   },
   response: {
     201: { description: "Adicional criado.", $ref: "Addon#" },
-    ...errors({ 409: NAME_TAKEN }),
+    ...errors({ 409: NAME_TAKEN }, { body: true }),
   },
 };
 
@@ -76,7 +76,7 @@ export const updateAddonSchema = {
   },
   response: {
     200: { description: "Adicional alterado.", $ref: "Addon#" },
-    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN }),
+    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN }, { body: true }),
   },
 };
 

@@ -156,3 +156,34 @@ describe("api versioning", () => {
     ).toBe(404);
   });
 });
+
+describe("an unexpected error on a documented route", () => {
+  const app = buildApp();
+
+  beforeAll(() => app.ready());
+  afterAll(() => app.close());
+
+  it("answers INTERNAL_ERROR through the declared 500 schema", async () => {
+    const query = app.db.query;
+    app.db.query = (async () => {
+      throw new Error("connection lost");
+    }) as unknown as typeof query;
+
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/addons",
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({
+        status_code: 500,
+        error: "Internal Server Error",
+        code: "INTERNAL_ERROR",
+        message: "Internal Server Error",
+      });
+    } finally {
+      app.db.query = query;
+    }
+  });
+});

@@ -99,7 +99,7 @@ export const createItemSchema = {
   },
   response: {
     201: { description: "Item criado.", $ref: "Item#" },
-    ...errors({ 409: NAME_TAKEN, 422: INVALID_REFERENCE }),
+    ...errors({ 409: NAME_TAKEN, 422: INVALID_REFERENCE }, { body: true }),
   },
 };
 
@@ -116,7 +116,10 @@ export const updateItemSchema = {
   },
   response: {
     200: { description: "Item alterado.", $ref: "Item#" },
-    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN, 422: INVALID_REFERENCE }),
+    ...errors(
+      { 404: NOT_FOUND, 409: NAME_TAKEN, 422: INVALID_REFERENCE },
+      { body: true },
+    ),
   },
 };
 

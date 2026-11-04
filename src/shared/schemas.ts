@@ -93,10 +93,27 @@ export const BAD_REQUEST =
 
 type ErrorStatus = 400 | 404 | 409 | 422;
 
-export function errors(descriptions: Partial<Record<ErrorStatus, string>>) {
+const INTERNAL_ERROR =
+  "`INTERNAL_ERROR`: erro inesperado no servidor. Mostre uma mensagem genérica e ofereça tentar de novo.";
+
+const BODY_ERRORS = {
+  413: "`PAYLOAD_TOO_LARGE`: corpo acima do limite.",
+  415: "`UNSUPPORTED_MEDIA_TYPE`: `Content-Type` não suportado; envie `application/json`.",
+};
+
+export function errors(
+  descriptions: Partial<Record<ErrorStatus, string>>,
+  { body = false }: { body?: boolean } = {},
+) {
   return Object.fromEntries(
-    Object.entries({ 400: BAD_REQUEST, ...descriptions }).map(
-      ([status, description]) => [status, { description, $ref: "Error#" }],
-    ),
+    Object.entries({
+      400: BAD_REQUEST,
+      ...descriptions,
+      ...(body ? BODY_ERRORS : {}),
+      500: INTERNAL_ERROR,
+    }).map(([status, description]) => [
+      status,
+      { description, $ref: "Error#" },
+    ]),
   );
 }

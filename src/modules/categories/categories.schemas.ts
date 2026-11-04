@@ -65,7 +65,7 @@ export const createCategorySchema = {
   },
   response: {
     201: { description: "Categoria criada.", $ref: "Category#" },
-    ...errors({ 409: NAME_TAKEN }),
+    ...errors({ 409: NAME_TAKEN }, { body: true }),
   },
 };
 
@@ -82,7 +82,7 @@ export const updateCategorySchema = {
   },
   response: {
     200: { description: "Categoria alterada.", $ref: "Category#" },
-    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN }),
+    ...errors({ 404: NOT_FOUND, 409: NAME_TAKEN }, { body: true }),
   },
 };
 
