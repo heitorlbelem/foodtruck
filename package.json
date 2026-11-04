@@ -32,7 +32,7 @@
     "services:up": "npm run db:up && npm run migrate up",
     "db:up": "docker compose -f docker/compose.yml up -d --wait",
     "db:down": "docker compose -f docker/compose.yml down",
-    "migrate": "node --env-file=.env.development node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j sql",
+    "migrate": "node --env-file=.env.development node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j ts",
     "format": "prettier --write .",
     "lint": "prettier --check .",
     "prepare": "git config core.hooksPath .githooks"

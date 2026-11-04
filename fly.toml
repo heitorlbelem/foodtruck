@@ -2,7 +2,7 @@ app = "foodtruck-api"
 primary_region = "gru"
 
 [deploy]
-  release_command = "node node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j sql -d MIGRATE_DATABASE_URL up"
+  release_command = "node node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j ts -d MIGRATE_DATABASE_URL up"
 
 [env]
   PORT = "3000"
