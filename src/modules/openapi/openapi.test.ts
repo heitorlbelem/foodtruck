@@ -191,6 +191,32 @@ describe("openapi document", () => {
   });
 });
 
+describe("integration guide", () => {
+  it("carries the integration guide", () => {
+    const guide: string = doc.info.description;
+
+    for (const heading of [
+      "## Modelo do cardápio",
+      "## Primeiro acesso",
+      "## Lendo o cardápio",
+      "## Regras",
+      "## Erros",
+      "## Arquivar e restaurar",
+      "## O que ainda não existe",
+    ]) {
+      expect(guide).toContain(heading);
+    }
+
+    for (const code of ERROR_CODES) {
+      expect(guide).toContain(`\`${code}\``);
+    }
+
+    for (const tag of doc.tags) {
+      expect(tag.description.length, tag.name).toBeGreaterThanOrEqual(200);
+    }
+  });
+});
+
 describe("error responses with declared schemas", () => {
   beforeEach(() => resetCatalog(app.db));
 
