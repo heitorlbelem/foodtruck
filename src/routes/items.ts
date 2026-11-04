@@ -120,7 +120,15 @@ export async function itemRoutes(app: FastifyInstance) {
     "/items/:id",
     { schema: { params: idParams } },
     async (request, reply) => {
-      if (!(await archiveItem(app.db, request.params.id))) {
+      const result = await archiveItem(app.db, request.params.id);
+
+      if (result.blocked_by.length > 0) {
+        throw conflict(
+          `item is still used by combos: ${result.blocked_by.join(", ")}`,
+        );
+      }
+
+      if (!result.archived) {
         throw notFound("item not found");
       }
 

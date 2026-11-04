@@ -95,7 +95,15 @@ export async function addonRoutes(app: FastifyInstance) {
     "/addons/:id",
     { schema: { params: idParams } },
     async (request, reply) => {
-      if (!(await archiveAddon(app.db, request.params.id))) {
+      const result = await archiveAddon(app.db, request.params.id);
+
+      if (result.blocked_by.length > 0) {
+        throw conflict(
+          `addon is still used by items: ${result.blocked_by.join(", ")}`,
+        );
+      }
+
+      if (!result.archived) {
         throw notFound("addon not found");
       }
 
