@@ -14,14 +14,20 @@ export function makeSessionRepository(db: Queryable) {
   return {
     async create(input: {
       userId: string;
+      passwordHash: string;
       tokenHash: string;
       userAgent?: string;
       ip?: string;
-    }): Promise<{ id: string; expires_at: Date }> {
+    }): Promise<{ id: string; expires_at: Date } | null> {
       const { rows } = await db.query<{ id: string; expires_at: Date }>(
-        `WITH session AS (
+        `WITH owner AS (
+           SELECT id FROM users
+            WHERE id = $1 AND active AND password_hash = $6
+              FOR SHARE
+         ), session AS (
            INSERT INTO sessions (user_id, created_at, expires_at, user_agent, ip)
-           VALUES ($1, now(), now() + $2::double precision * interval '1 millisecond', $3, $4)
+           SELECT id, now(), now() + $2::double precision * interval '1 millisecond', $3, $4
+             FROM owner
            RETURNING id, expires_at
          ), token AS (
            INSERT INTO refresh_tokens (token_hash, session_id)
@@ -34,9 +40,10 @@ export function makeSessionRepository(db: Queryable) {
           input.userAgent ?? null,
           input.ip ?? null,
           input.tokenHash,
+          input.passwordHash,
         ],
       );
-      return rows[0]!;
+      return rows[0] ?? null;
     },
 
     async consumeRefreshToken(tokenHash: string): Promise<string | null> {

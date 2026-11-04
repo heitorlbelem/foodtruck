@@ -1,3 +1,4 @@
+import type { Pool } from "pg";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createPool } from "../../infra/db/pool.ts";
@@ -14,7 +15,8 @@ import {
 import type { Role } from "./users.repository.ts";
 
 const db = createPool();
-const auth = makeAuthService({ db, secret: loadJwtSecret() });
+const secret = loadJwtSecret();
+const auth = makeAuthService({ db, secret });
 const PASSWORD = "correct horse battery";
 const EMAIL = "dono@x.com";
 const META = { userAgent: "vitest", ip: "127.0.0.1" };
@@ -24,6 +26,28 @@ afterAll(() => db.end());
 
 function newOwner() {
   return createUser(db, { email: EMAIL, name: "Dono", password: PASSWORD });
+}
+
+function beforeSessionInsert(run: () => Promise<unknown>): Pool {
+  let pending: (() => Promise<unknown>) | null = run;
+
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property !== "query") {
+        return Reflect.get(target, property, receiver);
+      }
+
+      return async (text: string, values?: unknown[]) => {
+        if (pending && text.includes("INSERT INTO sessions")) {
+          const step = pending;
+          pending = null;
+          await step();
+        }
+
+        return target.query(text, values);
+      };
+    },
+  });
 }
 
 describe("users admin", () => {
@@ -101,6 +125,34 @@ describe("users admin", () => {
     await setUserActive(db, EMAIL, true);
 
     await expect(auth.login(EMAIL, PASSWORD, META)).resolves.toBeDefined();
+  });
+
+  it("refuses a login that races a password reset", async () => {
+    await newOwner();
+    const racing = makeAuthService({
+      db: beforeSessionInsert(() =>
+        resetPassword(db, EMAIL, "another long password"),
+      ),
+      secret,
+    });
+
+    await expect(racing.login(EMAIL, PASSWORD, META)).rejects.toMatchObject({
+      code: "INVALID_CREDENTIALS",
+    });
+    expect((await listUsers(db))[0]).toMatchObject({ live_sessions: 0 });
+  });
+
+  it("refuses a login that races a deactivation", async () => {
+    await newOwner();
+    const racing = makeAuthService({
+      db: beforeSessionInsert(() => setUserActive(db, EMAIL, false)),
+      secret,
+    });
+
+    await expect(racing.login(EMAIL, PASSWORD, META)).rejects.toMatchObject({
+      code: "INVALID_CREDENTIALS",
+    });
+    expect((await listUsers(db))[0]).toMatchObject({ live_sessions: 0 });
   });
 
   it("list reports live sessions without hashes", async () => {

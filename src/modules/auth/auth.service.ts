@@ -84,9 +84,14 @@ export function makeAuthService({
       const refreshToken = newRefreshToken();
       const session = await makeSessionRepository(db).create({
         userId: user.id,
+        passwordHash: user.password_hash,
         tokenHash: hashRefreshToken(refreshToken),
         ...meta,
       });
+
+      if (!session) {
+        throw invalidCredentials();
+      }
 
       return pair(session, user, refreshToken);
     },
