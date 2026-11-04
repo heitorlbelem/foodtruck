@@ -1,6 +1,12 @@
 import type { Pool } from "pg";
 
-export async function checkDatabase(pool: Pool) {
+export function makeHealthRepository(pool: Pool) {
+  return { checkDatabase: () => checkDatabase(pool) };
+}
+
+export type HealthRepository = ReturnType<typeof makeHealthRepository>;
+
+async function checkDatabase(pool: Pool) {
   const startedAt = performance.now();
 
   try {

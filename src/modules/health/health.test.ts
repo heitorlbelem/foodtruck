@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { buildApp } from "../app.ts";
+import { buildApp } from "../../app.ts";
 
 describe("GET /health", () => {
   const app = buildApp();
