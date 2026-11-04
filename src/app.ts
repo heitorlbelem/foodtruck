@@ -6,6 +6,7 @@ import type { Pool } from "pg";
 import { createPool } from "./infra/db/pool.ts";
 import { addonRoutes } from "./routes/addons.ts";
 import { categoryRoutes } from "./routes/categories.ts";
+import { comboRoutes } from "./routes/combos.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { itemRoutes } from "./routes/items.ts";
 
@@ -55,6 +56,7 @@ export function buildApp(
   app.register(categoryRoutes);
   app.register(itemRoutes);
   app.register(addonRoutes);
+  app.register(comboRoutes);
 
   return app;
 }

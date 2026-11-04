@@ -1,0 +1,156 @@
+import type { FastifyInstance } from "fastify";
+
+import {
+  archiveCombo,
+  type ComboInput,
+  createCombo,
+  listCombos,
+  UnavailableItemsError,
+  UnknownCategoriesError,
+  updateCombo,
+} from "../catalog/combos.ts";
+import { currentFoodtruckId } from "../catalog/foodtruck.ts";
+import { isUniqueViolation } from "../infra/db/errors.ts";
+import { conflict, notFound, unprocessable } from "./http-errors.ts";
+
+type IdParams = { id: string };
+
+const comboSchema = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    name: { type: "string" },
+    price_cents: { type: "integer" },
+    suggested_price_cents: { type: "integer" },
+    components: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          item_id: { type: "string" },
+          quantity: { type: "integer" },
+          swap_category_id: { type: ["string", "null"] },
+        },
+      },
+    },
+  },
+};
+
+const bodyProperties = {
+  name: { type: "string", minLength: 1 },
+  price_cents: { type: "integer", minimum: 0 },
+  components: {
+    type: "array",
+    minItems: 1,
+    items: {
+      type: "object",
+      properties: {
+        item_id: { type: "string", format: "uuid" },
+        quantity: { type: "integer", minimum: 1 },
+        swap_category_id: { type: "string", format: "uuid" },
+      },
+      required: ["item_id", "quantity"],
+      additionalProperties: false,
+    },
+  },
+};
+
+const idParams = {
+  type: "object",
+  properties: { id: { type: "string", format: "uuid" } },
+  required: ["id"],
+};
+
+export async function comboRoutes(app: FastifyInstance) {
+  app.get(
+    "/combos",
+    { schema: { response: { 200: { type: "array", items: comboSchema } } } },
+    async () => listCombos(app.db, await currentFoodtruckId(app.db)),
+  );
+
+  app.post<{ Body: ComboInput }>(
+    "/combos",
+    {
+      schema: {
+        body: {
+          type: "object",
+          properties: bodyProperties,
+          required: ["name", "components"],
+          additionalProperties: false,
+        },
+        response: { 201: comboSchema },
+      },
+    },
+    async (request, reply) => {
+      const foodtruckId = await currentFoodtruckId(app.db);
+      const combo = await createCombo(app.db, foodtruckId, request.body).catch(
+        rethrowWriteError(request.body),
+      );
+
+      return reply.code(201).send(combo);
+    },
+  );
+
+  app.patch<{ Params: IdParams; Body: Partial<ComboInput> }>(
+    "/combos/:id",
+    {
+      schema: {
+        params: idParams,
+        body: {
+          type: "object",
+          properties: bodyProperties,
+          additionalProperties: false,
+        },
+        response: { 200: comboSchema },
+      },
+    },
+    async (request) => {
+      const combo = await updateCombo(
+        app.db,
+        request.params.id,
+        request.body,
+      ).catch(rethrowWriteError(request.body));
+
+      if (!combo) {
+        throw notFound("combo not found");
+      }
+
+      return combo;
+    },
+  );
+
+  app.delete<{ Params: IdParams }>(
+    "/combos/:id",
+    { schema: { params: idParams } },
+    async (request, reply) => {
+      if (!(await archiveCombo(app.db, request.params.id))) {
+        throw notFound("combo not found");
+      }
+
+      return reply.code(204).send();
+    },
+  );
+}
+
+function rethrowWriteError(body: Partial<ComboInput>) {
+  return (error: unknown): never => {
+    if (error instanceof UnavailableItemsError) {
+      throw unprocessable(
+        `items ${error.itemIds.join(", ")} do not exist or are archived`,
+      );
+    }
+
+    if (error instanceof UnknownCategoriesError) {
+      throw unprocessable(
+        `swap categories ${error.categoryIds.join(", ")} do not exist`,
+      );
+    }
+
+    if (isUniqueViolation(error)) {
+      throw conflict(`a combo named "${body.name}" already exists`);
+    }
+
+    throw error;
+  };
+}

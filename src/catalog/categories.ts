@@ -56,7 +56,13 @@ export async function updateCategory(
 export type DeleteCategoryResult =
   | { deleted: true }
   | { deleted: false; reason: "not_found" }
-  | { deleted: false; reason: "has_items"; name: string };
+  | { deleted: false; reason: "has_items"; name: string }
+  | {
+      deleted: false;
+      reason: "swap_category";
+      name: string;
+      combos: string[];
+    };
 
 export async function deleteCategory(
   db: Pool,
@@ -76,11 +82,29 @@ export async function deleteCategory(
       throw error;
     }
 
-    const { rows } = await db.query<{ name: string }>(
-      "SELECT name FROM categories WHERE id = $1",
+    const { rows } = await db.query<{
+      name: string;
+      has_items: boolean;
+      combos: string[];
+    }>(
+      `SELECT category.name,
+              EXISTS (SELECT 1 FROM items WHERE category_id = category.id)
+                AS has_items,
+              coalesce(
+                (SELECT array_agg(DISTINCT combo.name ORDER BY combo.name)
+                   FROM combo_components component
+                   JOIN combos combo ON combo.id = component.combo_id
+                  WHERE component.swap_category_id = category.id),
+                '{}'
+              ) AS combos
+         FROM categories category
+        WHERE category.id = $1`,
       [id],
     );
+    const { name, has_items, combos } = rows[0]!;
 
-    return { deleted: false, reason: "has_items", name: rows[0]!.name };
+    return has_items
+      ? { deleted: false, reason: "has_items", name }
+      : { deleted: false, reason: "swap_category", name, combos };
   }
 }
