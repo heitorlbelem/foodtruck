@@ -1,4 +1,5 @@
 import type { Queryable } from "../../infra/db/pool.ts";
+import type { ListFilter } from "../../shared/api.ts";
 import type { Ref } from "../../shared/errors.ts";
 
 export type ComboComponent = {
@@ -43,12 +44,15 @@ const SELECT_COMBOS = `
 
 export function makeComboRepository(db: Queryable) {
   return {
-    async list(foodtruckId: string): Promise<ComboRow[]> {
+    async list(
+      foodtruckId: string,
+      { archived }: ListFilter = { archived: false },
+    ): Promise<ComboRow[]> {
       const { rows } = await db.query<ComboRow>(
         `${SELECT_COMBOS}
-          WHERE combo.foodtruck_id = $1 AND combo.archived_at IS NULL
+          WHERE combo.foodtruck_id = $1 AND (combo.archived_at IS NOT NULL) = $2
           ORDER BY combo.name`,
-        [foodtruckId],
+        [foodtruckId, archived],
       );
 
       return rows;

@@ -1,4 +1,4 @@
-import { idParams, priceCents } from "../../shared/schemas.ts";
+import { idParams, priceCents, archivedQuery } from "../../shared/schemas.ts";
 
 export const addonSchema = {
   type: "object",
@@ -15,6 +15,7 @@ const bodyProperties = {
 };
 
 export const listAddonsSchema = {
+  querystring: archivedQuery,
   response: { 200: { type: "array", items: addonSchema } },
 };
 

@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { isUniqueViolation } from "../../infra/db/errors.ts";
-import { API_V1_PREFIX } from "../../shared/api.ts";
+import { API_V1_PREFIX, type ListFilter } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
@@ -84,8 +84,11 @@ export function makeComboService({ db }: { db: Pool }) {
   }
 
   return {
-    async list(foodtruckId: string): Promise<Combo[]> {
-      return (await combos.list(foodtruckId)).map(toCombo);
+    async list(
+      foodtruckId: string,
+      filter: ListFilter = { archived: false },
+    ): Promise<Combo[]> {
+      return (await combos.list(foodtruckId, filter)).map(toCombo);
     },
 
     async create(foodtruckId: string, input: ComboInput): Promise<Combo> {

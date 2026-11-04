@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import type { ArchivedQuery } from "../../shared/api.ts";
 import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
 import { type AddonInput, makeAddonRepository } from "./addons.repository.ts";
 import {
@@ -18,8 +19,13 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
   const addons = makeAddonRepository(app.db);
   const service = makeAddonService({ db: app.db });
 
-  app.get("/addons", { schema: listAddonsSchema }, async () =>
-    addons.list(await foodtrucks.currentId()),
+  app.get<{ Querystring: ArchivedQuery }>(
+    "/addons",
+    { schema: listAddonsSchema },
+    async (request) =>
+      addons.list(await foodtrucks.currentId(), {
+        archived: request.query.archived === "true",
+      }),
   );
 
   app.post<{ Body: AddonInput }>(

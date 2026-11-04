@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import type { ArchivedQuery } from "../../shared/api.ts";
 import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
 import { makeCategoryRepository } from "./categories.repository.ts";
 import {
@@ -19,8 +20,13 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
   const categories = makeCategoryRepository(app.db);
   const service = makeCategoryService({ db: app.db });
 
-  app.get("/categories", { schema: listCategoriesSchema }, async () =>
-    categories.list(await foodtrucks.currentId()),
+  app.get<{ Querystring: ArchivedQuery }>(
+    "/categories",
+    { schema: listCategoriesSchema },
+    async (request) =>
+      categories.list(await foodtrucks.currentId(), {
+        archived: request.query.archived === "true",
+      }),
   );
 
   app.post<{ Body: CategoryBody }>(

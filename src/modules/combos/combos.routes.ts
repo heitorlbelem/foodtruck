@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import type { ArchivedQuery } from "../../shared/api.ts";
 import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
 import {
   archiveComboSchema,
@@ -16,8 +17,13 @@ export const comboRoutes: FastifyPluginAsync = async (app) => {
   const foodtrucks = makeFoodtruckRepository(app.db);
   const service = makeComboService({ db: app.db });
 
-  app.get("/combos", { schema: listCombosSchema }, async () =>
-    service.list(await foodtrucks.currentId()),
+  app.get<{ Querystring: ArchivedQuery }>(
+    "/combos",
+    { schema: listCombosSchema },
+    async (request) =>
+      service.list(await foodtrucks.currentId(), {
+        archived: request.query.archived === "true",
+      }),
   );
 
   app.post<{ Body: ComboInput }>(

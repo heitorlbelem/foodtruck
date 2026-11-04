@@ -1,4 +1,5 @@
 import type { Queryable } from "../../infra/db/pool.ts";
+import type { ListFilter } from "../../shared/api.ts";
 import type { Ref } from "../../shared/errors.ts";
 import type { Addon } from "../addons/addons.repository.ts";
 
@@ -27,7 +28,10 @@ const COLUMNS = "id, category_id, name, price_cents";
 
 export function makeItemRepository(db: Queryable) {
   return {
-    async list(foodtruckId: string): Promise<Item[]> {
+    async list(
+      foodtruckId: string,
+      { archived }: ListFilter = { archived: false },
+    ): Promise<Item[]> {
       const { rows } = await db.query<Item>(
         `SELECT ${COLUMNS},
                 coalesce(
@@ -51,9 +55,9 @@ export function makeItemRepository(db: Queryable) {
                   '[]'
                 ) AS addons
            FROM items
-          WHERE foodtruck_id = $1 AND archived_at IS NULL
+          WHERE foodtruck_id = $1 AND (archived_at IS NOT NULL) = $2
           ORDER BY name`,
-        [foodtruckId],
+        [foodtruckId, archived],
       );
 
       return rows;

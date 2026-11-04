@@ -506,3 +506,89 @@ describe("error details", () => {
     ).toEqual({ suggested_price_cents: 200_000_000 });
   });
 });
+
+describe("listing archived", () => {
+  async function ids(url: string) {
+    const response = await inject("GET", url);
+    expect(response.statusCode).toBe(200);
+    return response.json().map((row: Ref) => row.id);
+  }
+
+  async function expectSplit(path: string, live: string, archived: string) {
+    expect(await ids(`/${path}?archived=true`)).toEqual([archived]);
+    expect(await ids(`/${path}`)).toEqual([live]);
+    expect(await ids(`/${path}?archived=false`)).toEqual([live]);
+  }
+
+  it("splits categories", async () => {
+    const desserts = await post("/categories", { name: "Sobremesas" });
+    await inject("DELETE", `/categories/${desserts.id}`);
+
+    expect(await ids("/categories?archived=true")).toEqual([desserts.id]);
+    expect((await ids("/categories")).sort()).toEqual(
+      [snacks.id, drinks.id].sort(),
+    );
+    expect((await ids("/categories?archived=false")).sort()).toEqual(
+      [snacks.id, drinks.id].sort(),
+    );
+  });
+
+  it("splits items", async () => {
+    await inject("DELETE", `/items/${soda.id}`);
+
+    await expectSplit("items", burger.id, soda.id);
+  });
+
+  it("splits addons", async () => {
+    const egg = await post("/addons", { name: "Ovo", price_cents: 300 });
+    await inject("DELETE", `/addons/${egg.id}`);
+
+    await expectSplit("addons", bacon.id, egg.id);
+  });
+
+  it("splits combos and keeps an archived combo's components", async () => {
+    const live = await post("/combos", {
+      name: "Combo Picanha",
+      components: [{ item_id: burger.id, quantity: 1 }],
+    });
+    const old = await post("/combos", {
+      name: "Combo Refri",
+      components: [{ item_id: soda.id, quantity: 2 }],
+    });
+    await inject("DELETE", `/combos/${old.id}`);
+    await inject("DELETE", `/items/${soda.id}`);
+
+    await expectSplit("combos", live.id, old.id);
+    expect((await inject("GET", "/combos?archived=true")).json()).toEqual([
+      {
+        id: old.id,
+        name: "Combo Refri",
+        price_cents: 1400,
+        suggested_price_cents: 1400,
+        components: [
+          {
+            id: expect.any(String),
+            item_id: soda.id,
+            quantity: 2,
+            swap_category_id: null,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("refuses anything but true or false", async () => {
+    for (const query of ["archived=1", "archived=yes", "foo=bar"]) {
+      const response = await inject("GET", `/items?${query}`);
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().code).toBe("VALIDATION_FAILED");
+    }
+  });
+
+  it("keeps archived rows out of the menu", async () => {
+    await inject("DELETE", `/items/${soda.id}`);
+
+    expect((await inject("GET", "/menu")).body).not.toContain("Refrigerante");
+  });
+});

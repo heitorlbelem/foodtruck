@@ -24,3 +24,9 @@ export const idParams = {
   properties: { id: uuid },
   required: ["id"],
 };
+
+export const archivedQuery = {
+  type: "object",
+  properties: { archived: { type: "string", enum: ["true", "false"] } },
+  additionalProperties: false,
+};

@@ -1,4 +1,5 @@
 import type { Queryable } from "../../infra/db/pool.ts";
+import type { ListFilter } from "../../shared/api.ts";
 
 export type Category = { id: string; name: string; sort_order: number };
 
@@ -13,12 +14,15 @@ const COLUMNS = "id, name, sort_order";
 
 export function makeCategoryRepository(db: Queryable) {
   return {
-    async list(foodtruckId: string): Promise<Category[]> {
+    async list(
+      foodtruckId: string,
+      { archived }: ListFilter = { archived: false },
+    ): Promise<Category[]> {
       const { rows } = await db.query<Category>(
         `SELECT ${COLUMNS} FROM categories
-          WHERE foodtruck_id = $1 AND archived_at IS NULL
+          WHERE foodtruck_id = $1 AND (archived_at IS NOT NULL) = $2
           ORDER BY sort_order, name`,
-        [foodtruckId],
+        [foodtruckId, archived],
       );
 
       return rows;

@@ -3,6 +3,7 @@ import {
   MAX_QUANTITY,
   priceCents,
   uuid,
+  archivedQuery,
 } from "../../shared/schemas.ts";
 
 export const comboSchema = {
@@ -48,6 +49,7 @@ const bodyProperties = {
 };
 
 export const listCombosSchema = {
+  querystring: archivedQuery,
   response: { 200: { type: "array", items: comboSchema } },
 };
 

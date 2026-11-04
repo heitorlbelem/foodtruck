@@ -1,4 +1,4 @@
-import { idParams, sortOrder } from "../../shared/schemas.ts";
+import { idParams, sortOrder, archivedQuery } from "../../shared/schemas.ts";
 
 export const categorySchema = {
   type: "object",
@@ -15,6 +15,7 @@ const bodyProperties = {
 };
 
 export const listCategoriesSchema = {
+  querystring: archivedQuery,
   response: { 200: { type: "array", items: categorySchema } },
 };
 
