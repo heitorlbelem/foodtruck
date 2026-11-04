@@ -42,7 +42,6 @@ describe("GET /health", () => {
 });
 
 describe("GET /health with the database down", () => {
-  // Port 1 refuses the connection immediately.
   const unreachable = new Pool({
     connectionString: "postgresql://foodtruck:foodtruck@localhost:1/foodtruck",
   });
@@ -63,6 +62,36 @@ describe("GET /health with the database down", () => {
 
     expect(response.payload).not.toContain("ECONNREFUSED");
     expect(response.json().database).not.toHaveProperty("error");
+  });
+});
+
+describe("GET /health/live", () => {
+  const app = buildApp();
+
+  beforeAll(() => app.ready());
+  afterAll(() => app.close());
+
+  it("responds with 200 and nothing but the status", async () => {
+    const response = await app.inject({ method: "GET", url: "/health/live" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: "ok" });
+  });
+});
+
+describe("GET /health/live with the database down", () => {
+  const unreachable = new Pool({
+    connectionString: "postgresql://foodtruck:foodtruck@localhost:1/foodtruck",
+  });
+  const app = buildApp({}, unreachable);
+
+  beforeAll(() => app.ready());
+  afterAll(() => app.close());
+
+  it("still responds with 200", async () => {
+    const response = await app.inject({ method: "GET", url: "/health/live" });
+
+    expect(response.statusCode).toBe(200);
   });
 });
 

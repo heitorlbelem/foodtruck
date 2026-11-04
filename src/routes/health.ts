@@ -25,7 +25,18 @@ const healthSchema = {
   },
 };
 
+const liveSchema = {
+  type: "object",
+  properties: { status: { type: "string" } },
+};
+
 export async function healthRoutes(app: FastifyInstance) {
+  app.get(
+    "/health/live",
+    { schema: { response: { 200: liveSchema } } },
+    async () => ({ status: "ok" }),
+  );
+
   app.get(
     "/health",
     { schema: { response: { 200: healthSchema, 503: healthSchema } } },
@@ -34,8 +45,6 @@ export async function healthRoutes(app: FastifyInstance) {
         await checkDatabase(app.db);
 
       if (error) {
-        // Kept out of the body: it carries the connection string, and this
-        // route needs no credentials.
         request.log.error({ err: error }, "database health check failed");
         reply.code(503);
       }
