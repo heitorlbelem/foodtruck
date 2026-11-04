@@ -1,4 +1,4 @@
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 import { isForeignKeyViolation } from "../infra/db/errors.ts";
 
@@ -7,7 +7,7 @@ export type Category = { id: string; name: string; sort_order: number };
 const COLUMNS = "id, name, sort_order";
 
 export async function listCategories(
-  db: Pool,
+  db: Pool | PoolClient,
   foodtruckId: string,
 ): Promise<Category[]> {
   const { rows } = await db.query<Category>(

@@ -24,7 +24,7 @@ type ItemBody = {
 };
 type IdParams = { id: string };
 
-const itemSchema = {
+export const itemSchema = {
   type: "object",
   properties: {
     id: { type: "string" },
