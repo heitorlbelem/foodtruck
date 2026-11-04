@@ -567,3 +567,73 @@ describe("addons an item accepts", () => {
     expect(items[0].addons).toEqual([]);
   });
 });
+
+describe("archiving an item a combo depends on", () => {
+  async function setUp() {
+    const snacks = await createCategory("Lanches");
+    const drinks = await createCategory("Bebidas");
+    const burger = await createItem({
+      category_id: snacks.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+    });
+    const soda = await createItem({
+      category_id: drinks.id,
+      name: "Refrigerante",
+      price_cents: 700,
+    });
+    const combo = (
+      await inject("POST", "/combos", {
+        name: "Combo Clássico",
+        components: [
+          { item_id: burger.id, quantity: 1 },
+          { item_id: soda.id, quantity: 1, swap_category_id: drinks.id },
+        ],
+      })
+    ).json();
+
+    return { burger, soda, combo };
+  }
+
+  it("refuses to archive an item that is a component of an active combo", async () => {
+    const { soda } = await setUp();
+
+    const response = await inject("DELETE", `/items/${soda.id}`);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toContain("Combo Clássico");
+    expect((await inject("GET", "/items")).json()).toHaveLength(2);
+  });
+
+  it("names every active combo holding the item", async () => {
+    const { burger, soda } = await setUp();
+    await inject("POST", "/combos", {
+      name: "Combo Kids",
+      components: [
+        { item_id: burger.id, quantity: 1 },
+        { item_id: soda.id, quantity: 1 },
+      ],
+    });
+
+    const response = await inject("DELETE", `/items/${soda.id}`);
+
+    expect(response.json().message).toContain("Combo Clássico");
+    expect(response.json().message).toContain("Combo Kids");
+  });
+
+  it("archives the item once the combo is archived", async () => {
+    const { soda, combo } = await setUp();
+    await inject("DELETE", `/combos/${combo.id}`);
+
+    expect((await inject("DELETE", `/items/${soda.id}`)).statusCode).toBe(204);
+  });
+
+  it("archives the item once the combo drops it", async () => {
+    const { burger, soda, combo } = await setUp();
+    await inject("PATCH", `/combos/${combo.id}`, {
+      components: [{ item_id: burger.id, quantity: 1 }],
+    });
+
+    expect((await inject("DELETE", `/items/${soda.id}`)).statusCode).toBe(204);
+  });
+});

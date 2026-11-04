@@ -130,15 +130,46 @@ export async function updateItem(
   });
 }
 
-export async function archiveItem(db: Pool, id: string): Promise<boolean> {
-  const { rowCount } = await db.query(
-    `UPDATE items
-        SET archived_at = now(), updated_at = now()
-      WHERE id = $1 AND archived_at IS NULL`,
-    [id],
-  );
+export type ArchiveResult = { archived: boolean; blocked_by: string[] };
 
-  return rowCount === 1;
+export async function archiveItem(
+  db: Pool,
+  id: string,
+): Promise<ArchiveResult> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query(
+      `SELECT 1 FROM items
+        WHERE id = $1 AND archived_at IS NULL
+          FOR UPDATE`,
+      [id],
+    );
+
+    if (rows.length === 0) {
+      return { archived: false, blocked_by: [] };
+    }
+
+    const { rows: combos } = await tx.query<{ name: string }>(
+      `SELECT DISTINCT combo.name
+         FROM combo_components component
+         JOIN combos combo ON combo.id = component.combo_id
+        WHERE component.item_id = $1 AND combo.archived_at IS NULL
+        ORDER BY combo.name`,
+      [id],
+    );
+
+    if (combos.length > 0) {
+      return { archived: false, blocked_by: combos.map((combo) => combo.name) };
+    }
+
+    await tx.query(
+      `UPDATE items
+          SET archived_at = now(), updated_at = now()
+        WHERE id = $1`,
+      [id],
+    );
+
+    return { archived: true, blocked_by: [] };
+  });
 }
 
 async function replaceIngredients(

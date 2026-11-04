@@ -198,3 +198,65 @@ describe("addons", () => {
     expect(response.statusCode).toBe(404);
   });
 });
+
+describe("archiving an addon an item accepts", () => {
+  async function setUp() {
+    const category = (
+      await inject("POST", "/categories", { name: "Lanches" })
+    ).json();
+    const bacon = await createAddon("Bacon", 500);
+    const burger = (
+      await inject("POST", "/items", {
+        category_id: category.id,
+        name: "Hambúrguer",
+        price_cents: 2500,
+        addon_ids: [bacon.id],
+      })
+    ).json();
+
+    return { category, bacon, burger };
+  }
+
+  it("refuses to archive an addon still linked to an item", async () => {
+    const { bacon } = await setUp();
+
+    const response = await inject("DELETE", `/addons/${bacon.id}`);
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toContain("Hambúrguer");
+    expect((await inject("GET", "/addons")).json()).toHaveLength(1);
+  });
+
+  it("names every live item that accepts the addon", async () => {
+    const { category, bacon } = await setUp();
+    await inject("POST", "/items", {
+      category_id: category.id,
+      name: "X-Salada",
+      price_cents: 2200,
+      addon_ids: [bacon.id],
+    });
+
+    const response = await inject("DELETE", `/addons/${bacon.id}`);
+
+    expect(response.json().message).toContain("Hambúrguer");
+    expect(response.json().message).toContain("X-Salada");
+  });
+
+  it("archives the addon once the item drops it", async () => {
+    const { bacon, burger } = await setUp();
+    await inject("PATCH", `/items/${burger.id}`, { addon_ids: [] });
+
+    expect((await inject("DELETE", `/addons/${bacon.id}`)).statusCode).toBe(
+      204,
+    );
+  });
+
+  it("archives the addon once the item is archived", async () => {
+    const { bacon, burger } = await setUp();
+    await inject("DELETE", `/items/${burger.id}`);
+
+    expect((await inject("DELETE", `/addons/${bacon.id}`)).statusCode).toBe(
+      204,
+    );
+  });
+});
