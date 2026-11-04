@@ -13,7 +13,7 @@ const EMAIL = "dono@foodtruck.com";
 beforeAll(() => app.ready());
 beforeEach(async () => {
   await resetCatalog(app.db);
-  app.auth.limiter.clear();
+  await app.auth.limiter.clear();
   await makeUserRepository(app.db).create({
     foodtruckId: await makeFoodtruckRepository(app.db).currentId(),
     name: "Dono",
@@ -149,6 +149,32 @@ describe("auth routes", () => {
       statuses.filter((status) => status === 429).length,
     ).toBeGreaterThanOrEqual(5);
     expect((await login()).statusCode).toBe(429);
+  });
+
+  it("shares the count between app instances", async () => {
+    const other = buildApp();
+    await other.ready();
+
+    try {
+      for (let i = 0; i < 5; i++) {
+        const instance = i % 2 === 0 ? app : other;
+        const response = await instance.inject({
+          method: "POST",
+          url: "/api/v1/auth/login",
+          payload: { email: EMAIL, password: "wrong password here" },
+        });
+        expect(response.statusCode).toBe(401);
+      }
+
+      const response = await other.inject({
+        method: "POST",
+        url: "/api/v1/auth/login",
+        payload: { email: EMAIL, password: PASSWORD },
+      });
+      expect(response.statusCode).toBe(429);
+    } finally {
+      await other.close();
+    }
   });
 
   it("refreshes and rejects a reused token over HTTP", async () => {

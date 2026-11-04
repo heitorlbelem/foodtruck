@@ -26,7 +26,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       const { email, password } = request.body;
       const { ip } = request;
 
-      const verdict = limiter.attempt(email, ip);
+      const verdict = await limiter.attempt(email, ip);
       if (!verdict.allowed) {
         throw new AppError(
           429,
@@ -43,7 +43,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
             ? { userAgent: request.headers["user-agent"] }
             : {}),
         });
-        limiter.succeed(email, ip);
+        await limiter.succeed(email, ip);
         return pair;
       } catch (error) {
         throw error;

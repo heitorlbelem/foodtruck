@@ -28,7 +28,7 @@ const BEARER = /^Bearer ([^\s]+)$/;
 export function registerAuth(app: FastifyInstance): void {
   app.decorate("auth", {
     secret: loadJwtSecret(),
-    limiter: makeLoginLimiter(),
+    limiter: makeLoginLimiter(app.db),
   });
   app.decorateRequest("user", null);
 
