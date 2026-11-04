@@ -9,6 +9,7 @@ import {
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { conflict, notFound } from "./http-errors.ts";
+import { idParams, priceCents } from "./schemas.ts";
 
 type AddonBody = { name: string; price_cents: number };
 type IdParams = { id: string };
@@ -24,13 +25,7 @@ export const addonSchema = {
 
 const bodyProperties = {
   name: { type: "string", minLength: 1 },
-  price_cents: { type: "integer", minimum: 0 },
-};
-
-const idParams = {
-  type: "object",
-  properties: { id: { type: "string", format: "uuid" } },
-  required: ["id"],
+  price_cents: priceCents,
 };
 
 export async function addonRoutes(app: FastifyInstance) {

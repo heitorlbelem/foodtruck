@@ -9,6 +9,7 @@ import {
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { conflict, notFound } from "./http-errors.ts";
+import { idParams, sortOrder } from "./schemas.ts";
 
 type CategoryBody = { name?: string; sort_order?: number };
 type IdParams = { id: string };
@@ -24,13 +25,7 @@ export const categorySchema = {
 
 const bodyProperties = {
   name: { type: "string", minLength: 1 },
-  sort_order: { type: "integer" },
-};
-
-const idParams = {
-  type: "object",
-  properties: { id: { type: "string", format: "uuid" } },
-  required: ["id"],
+  sort_order: sortOrder,
 };
 
 export async function categoryRoutes(app: FastifyInstance) {

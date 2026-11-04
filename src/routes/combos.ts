@@ -5,6 +5,7 @@ import {
   type ComboInput,
   createCombo,
   listCombos,
+  SuggestedPriceTooHighError,
   UnavailableItemsError,
   UnknownCategoriesError,
   updateCombo,
@@ -12,6 +13,7 @@ import {
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
+import { idParams, MAX_QUANTITY, priceCents, uuid } from "./schemas.ts";
 
 type IdParams = { id: string };
 
@@ -39,27 +41,22 @@ export const comboSchema = {
 
 const bodyProperties = {
   name: { type: "string", minLength: 1 },
-  price_cents: { type: "integer", minimum: 0 },
+  price_cents: priceCents,
   components: {
     type: "array",
     minItems: 1,
+    maxItems: 50,
     items: {
       type: "object",
       properties: {
-        item_id: { type: "string", format: "uuid" },
-        quantity: { type: "integer", minimum: 1 },
-        swap_category_id: { type: "string", format: "uuid" },
+        item_id: uuid,
+        quantity: { type: "integer", minimum: 1, maximum: MAX_QUANTITY },
+        swap_category_id: uuid,
       },
       required: ["item_id", "quantity"],
       additionalProperties: false,
     },
   },
-};
-
-const idParams = {
-  type: "object",
-  properties: { id: { type: "string", format: "uuid" } },
-  required: ["id"],
 };
 
 export async function comboRoutes(app: FastifyInstance) {
@@ -144,6 +141,12 @@ function rethrowWriteError(body: Partial<ComboInput>) {
     if (error instanceof UnknownCategoriesError) {
       throw unprocessable(
         `swap categories ${error.categoryIds.join(", ")} do not exist`,
+      );
+    }
+
+    if (error instanceof SuggestedPriceTooHighError) {
+      throw unprocessable(
+        `the suggested price ${error.suggestedPriceCents} is above the ceiling; set price_cents by hand`,
       );
     }
 

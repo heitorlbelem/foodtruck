@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
+import { MAX_PRICE_CENTS } from "./money.ts";
 
 export type ComboComponent = {
   id: string;
@@ -44,6 +45,15 @@ export class UnknownCategoriesError extends Error {
   constructor(categoryIds: string[]) {
     super(`categories not found: ${categoryIds.join(", ")}`);
     this.categoryIds = categoryIds;
+  }
+}
+
+export class SuggestedPriceTooHighError extends Error {
+  readonly suggestedPriceCents: number;
+
+  constructor(suggestedPriceCents: number) {
+    super(`suggested price ${suggestedPriceCents} exceeds ${MAX_PRICE_CENTS}`);
+    this.suggestedPriceCents = suggestedPriceCents;
   }
 }
 
@@ -101,14 +111,7 @@ export async function createCombo(
 ): Promise<Combo> {
   return withTransaction(db, async (tx) => {
     const prices = await checkReferences(tx, foodtruckId, input.components);
-    const price =
-      input.price_cents ??
-      suggestedPriceCents(
-        input.components.map((component) => ({
-          quantity: component.quantity,
-          price_cents: prices.get(component.item_id)!,
-        })),
-      );
+    const price = input.price_cents ?? suggestion(input.components, prices);
 
     const { rows } = await tx.query<{ id: string }>(
       `INSERT INTO combos (foodtruck_id, name, price_cents)
@@ -157,6 +160,24 @@ export async function updateCombo(
 
     return readCombo(tx, id);
   });
+}
+
+function suggestion(
+  components: ComponentInput[],
+  prices: Map<string, number>,
+): number {
+  const cents = suggestedPriceCents(
+    components.map((component) => ({
+      quantity: component.quantity,
+      price_cents: prices.get(component.item_id)!,
+    })),
+  );
+
+  if (cents > MAX_PRICE_CENTS) {
+    throw new SuggestedPriceTooHighError(cents);
+  }
+
+  return cents;
 }
 
 export async function archiveCombo(db: Pool, id: string): Promise<boolean> {

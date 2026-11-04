@@ -14,6 +14,7 @@ import {
 } from "../infra/db/errors.ts";
 import { addonSchema } from "./addons.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
+import { idParams, priceCents, uuid } from "./schemas.ts";
 
 type ItemBody = {
   category_id: string;
@@ -37,9 +38,9 @@ export const itemSchema = {
 };
 
 const bodyProperties = {
-  category_id: { type: "string", format: "uuid" },
+  category_id: uuid,
   name: { type: "string", minLength: 1 },
-  price_cents: { type: "integer", minimum: 0 },
+  price_cents: priceCents,
   ingredients: {
     type: "array",
     items: { type: "string", minLength: 1 },
@@ -47,15 +48,9 @@ const bodyProperties = {
   },
   addon_ids: {
     type: "array",
-    items: { type: "string", format: "uuid" },
+    items: uuid,
     uniqueItems: true,
   },
-};
-
-const idParams = {
-  type: "object",
-  properties: { id: { type: "string", format: "uuid" } },
-  required: ["id"],
 };
 
 export async function itemRoutes(app: FastifyInstance) {
