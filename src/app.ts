@@ -28,7 +28,7 @@ export function buildApp(
   db: Pool = createPool(),
 ) {
   const app = Fastify({
-    trustProxy: true,
+    trustProxy: (_address, hop) => hop < 1,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
     ...opts,
   });

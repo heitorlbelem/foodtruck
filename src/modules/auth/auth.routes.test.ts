@@ -27,16 +27,21 @@ afterAll(() => app.close());
 function post(
   url: string,
   payload?: object,
-  options: { remoteAddress?: string; token?: string } = {},
+  options: {
+    remoteAddress?: string;
+    token?: string;
+    headers?: Record<string, string>;
+  } = {},
 ) {
   return app.inject({
     method: "POST",
     url: `/api/v1/auth${url}`,
     ...(payload ? { payload } : {}),
     ...(options.remoteAddress ? { remoteAddress: options.remoteAddress } : {}),
-    ...(options.token
-      ? { headers: { authorization: `Bearer ${options.token}` } }
-      : {}),
+    headers: {
+      ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
+      ...options.headers,
+    },
   });
 }
 
@@ -105,6 +110,45 @@ describe("auth routes", () => {
 
     expect((await login(EMAIL, PASSWORD, "10.0.0.9")).statusCode).toBe(429);
     expect((await login(EMAIL, PASSWORD, "10.0.0.10")).statusCode).toBe(200);
+  });
+
+  it("ignores forged forwarded-for prefixes when limiting an IP", async () => {
+    for (let i = 0; i < 20; i++) {
+      const response = await post(
+        "/login",
+        { email: `unknown${i}@foodtruck.com`, password: "wrong password here" },
+        {
+          remoteAddress: "10.0.0.9",
+          headers: { "x-forwarded-for": `1.1.1.${i}, 10.0.0.9` },
+        },
+      );
+      expect(response.statusCode).toBe(401);
+    }
+
+    const response = await post(
+      "/login",
+      { email: EMAIL, password: PASSWORD },
+      {
+        remoteAddress: "10.0.0.9",
+        headers: { "x-forwarded-for": "1.1.1.99, 10.0.0.9" },
+      },
+    );
+    expect(response.statusCode).toBe(429);
+  });
+
+  it("counts parallel attempts against the email limit", async () => {
+    const responses = await Promise.all(
+      Array.from({ length: 10 }, () => login(EMAIL, "wrong password here")),
+    );
+    const statuses = responses.map((response) => response.statusCode);
+
+    expect(
+      statuses.filter((status) => status === 401).length,
+    ).toBeLessThanOrEqual(5);
+    expect(
+      statuses.filter((status) => status === 429).length,
+    ).toBeGreaterThanOrEqual(5);
+    expect((await login()).statusCode).toBe(429);
   });
 
   it("refreshes and rejects a reused token over HTTP", async () => {

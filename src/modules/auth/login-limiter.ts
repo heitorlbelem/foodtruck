@@ -35,34 +35,38 @@ export function makeLoginLimiter({
   }
 
   return {
-    check(email: string, ip: string): LoginCheck {
+    attempt(email: string, ip: string): LoginCheck {
+      const emailKey = normalizeEmail(email);
       const blocked = [
-        { entry: live(emails, normalizeEmail(email)), max: maxPerEmail },
+        { entry: live(emails, emailKey), max: maxPerEmail },
         { entry: live(ips, ip), max: maxPerIp },
       ].filter(({ entry, max }) => entry && entry.failures >= max);
 
-      if (blocked.length === 0) {
-        return { allowed: true };
+      if (blocked.length > 0) {
+        const resetAt = Math.max(...blocked.map(({ entry }) => entry!.resetAt));
+
+        return {
+          allowed: false,
+          retryAfterSeconds: Math.max(
+            1,
+            Math.ceil((resetAt - Date.now()) / 1000),
+          ),
+        };
       }
 
-      const resetAt = Math.max(...blocked.map(({ entry }) => entry!.resetAt));
-
-      return {
-        allowed: false,
-        retryAfterSeconds: Math.max(
-          1,
-          Math.ceil((resetAt - Date.now()) / 1000),
-        ),
-      };
-    },
-
-    fail(email: string, ip: string): void {
-      record(emails, normalizeEmail(email));
+      record(emails, emailKey);
       record(ips, ip);
+
+      return { allowed: true };
     },
 
-    succeed(email: string): void {
+    succeed(email: string, ip: string): void {
       emails.delete(normalizeEmail(email));
+
+      const entry = live(ips, ip);
+      if (entry && --entry.failures <= 0) {
+        ips.delete(ip);
+      }
     },
 
     clear(): void {

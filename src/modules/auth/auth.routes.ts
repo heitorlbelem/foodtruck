@@ -26,7 +26,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       const { email, password } = request.body;
       const { ip } = request;
 
-      const verdict = limiter.check(email, ip);
+      const verdict = limiter.attempt(email, ip);
       if (!verdict.allowed) {
         throw new AppError(
           429,
@@ -43,12 +43,9 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
             ? { userAgent: request.headers["user-agent"] }
             : {}),
         });
-        limiter.succeed(email);
+        limiter.succeed(email, ip);
         return pair;
       } catch (error) {
-        if (error instanceof AppError && error.code === "INVALID_CREDENTIALS") {
-          limiter.fail(email, ip);
-        }
         throw error;
       }
     },
