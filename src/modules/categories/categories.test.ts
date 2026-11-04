@@ -55,6 +55,7 @@ describe("categories", () => {
     const response = await inject("POST", "/categories", { name: "Bebidas" });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
     expect(response.json().message).toContain("Bebidas");
   });
 
@@ -108,6 +109,7 @@ describe("categories", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
   });
 
   it("answers 404 when renaming a category that does not exist", async () => {
@@ -116,6 +118,7 @@ describe("categories", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("CATEGORY_NOT_FOUND");
     expect(response.json().message).toBe("category not found");
   });
 
@@ -145,6 +148,7 @@ describe("categories", () => {
     const response = await inject("DELETE", `/categories/${randomUUID()}`);
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("CATEGORY_NOT_FOUND");
     expect(response.json().message).toBe("category not found");
   });
 });

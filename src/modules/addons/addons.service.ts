@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { isUniqueViolation } from "../../infra/db/errors.ts";
 import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
-import { ConflictError, NotFoundError } from "../../shared/errors.ts";
+import { ConflictError, NotFoundError, names } from "../../shared/errors.ts";
 import { makeItemRepository } from "../items/items.repository.ts";
 import {
   type Addon,
@@ -18,11 +18,13 @@ export function makeAddonService({ db }: { db: Pool }) {
     const archivedId = await addons.findArchivedIdByName(foodtruckId, name);
     const message = `an addon named "${name}" already exists`;
 
-    return new ConflictError(
-      archivedId
-        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/addons/${archivedId}/restore`
-        : message,
-    );
+    return archivedId
+      ? new ConflictError(
+          "NAME_TAKEN_ARCHIVED",
+          `${message}, archived; restore it with POST ${API_V1_PREFIX}/addons/${archivedId}/restore`,
+          { archived_id: archivedId },
+        )
+      : new ConflictError("NAME_TAKEN", message);
   }
 
   return {
@@ -52,7 +54,7 @@ export function makeAddonService({ db }: { db: Pool }) {
       }
 
       if (!addon) {
-        throw new NotFoundError("addon not found");
+        throw new NotFoundError("ADDON_NOT_FOUND", "addon not found");
       }
 
       return addon;
@@ -64,14 +66,16 @@ export function makeAddonService({ db }: { db: Pool }) {
         const addon = await repository.lock(id);
 
         if (!addon || addon.archived) {
-          throw new NotFoundError("addon not found");
+          throw new NotFoundError("ADDON_NOT_FOUND", "addon not found");
         }
 
-        const items = await makeItemRepository(tx).liveNamesAcceptingAddon(id);
+        const items = await makeItemRepository(tx).liveItemsAcceptingAddon(id);
 
         if (items.length > 0) {
           throw new ConflictError(
-            `addon is still used by items: ${items.join(", ")}`,
+            "IN_USE",
+            `addon is still used by items: ${names(items)}`,
+            { items },
           );
         }
 
@@ -85,11 +89,11 @@ export function makeAddonService({ db }: { db: Pool }) {
         const addon = await repository.lock(id);
 
         if (!addon) {
-          throw new NotFoundError("addon not found");
+          throw new NotFoundError("ADDON_NOT_FOUND", "addon not found");
         }
 
         if (!addon.archived) {
-          throw new ConflictError("addon is not archived");
+          throw new ConflictError("NOT_ARCHIVED", "addon is not archived");
         }
 
         return repository.restore(id);

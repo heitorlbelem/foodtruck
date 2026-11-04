@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { isUniqueViolation } from "../../infra/db/errors.ts";
 import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
-import { ConflictError, NotFoundError } from "../../shared/errors.ts";
+import { ConflictError, NotFoundError, names } from "../../shared/errors.ts";
 import { makeComboRepository } from "../combos/combos.repository.ts";
 import { makeItemRepository } from "../items/items.repository.ts";
 import {
@@ -20,11 +20,13 @@ export function makeCategoryService({ db }: { db: Pool }) {
     const archivedId = await categories.findArchivedIdByName(foodtruckId, name);
     const message = `a category named "${name}" already exists`;
 
-    return new ConflictError(
-      archivedId
-        ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/categories/${archivedId}/restore`
-        : message,
-    );
+    return archivedId
+      ? new ConflictError(
+          "NAME_TAKEN_ARCHIVED",
+          `${message}, archived; restore it with POST ${API_V1_PREFIX}/categories/${archivedId}/restore`,
+          { archived_id: archivedId },
+        )
+      : new ConflictError("NAME_TAKEN", message);
   }
 
   return {
@@ -54,7 +56,7 @@ export function makeCategoryService({ db }: { db: Pool }) {
       }
 
       if (!category) {
-        throw new NotFoundError("category not found");
+        throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
       }
 
       return category;
@@ -65,21 +67,26 @@ export function makeCategoryService({ db }: { db: Pool }) {
         const category = await makeCategoryRepository(tx).lock(id);
 
         if (!category || category.archived) {
-          throw new NotFoundError("category not found");
+          throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
         }
 
-        const items = await makeItemRepository(tx).liveNamesInCategory(id);
+        const items = await makeItemRepository(tx).liveItemsInCategory(id);
         const combos =
-          await makeComboRepository(tx).liveNamesWithSwapCategory(id);
+          await makeComboRepository(tx).liveCombosWithSwapCategory(id);
 
         if (items.length > 0 || combos.length > 0) {
           const holders = [
-            ...(items.length > 0 ? [`items: ${items.join(", ")}`] : []),
-            ...(combos.length > 0 ? [`combos: ${combos.join(", ")}`] : []),
+            ...(items.length > 0 ? [`items: ${names(items)}`] : []),
+            ...(combos.length > 0 ? [`combos: ${names(combos)}`] : []),
           ];
 
           throw new ConflictError(
+            "IN_USE",
             `category "${category.name}" is still used by ${holders.join("; ")}`,
+            {
+              ...(items.length > 0 ? { items } : {}),
+              ...(combos.length > 0 ? { combos } : {}),
+            },
           );
         }
 
@@ -93,11 +100,11 @@ export function makeCategoryService({ db }: { db: Pool }) {
         const category = await repository.lock(id);
 
         if (!category) {
-          throw new NotFoundError("category not found");
+          throw new NotFoundError("CATEGORY_NOT_FOUND", "category not found");
         }
 
         if (!category.archived) {
-          throw new ConflictError("category is not archived");
+          throw new ConflictError("NOT_ARCHIVED", "category is not archived");
         }
 
         return repository.restore(id);

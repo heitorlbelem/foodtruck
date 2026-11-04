@@ -1,24 +1,64 @@
-import { addonSchema } from "../addons/addons.schemas.ts";
-import { categorySchema } from "../categories/categories.schemas.ts";
-import { comboSchema } from "../combos/combos.schemas.ts";
-import { itemSchema } from "../items/items.schemas.ts";
+import { errors } from "../../shared/schemas.ts";
+import { addonExample } from "../addons/addons.schemas.ts";
+import {
+  categoryExample,
+  categorySchema,
+} from "../categories/categories.schemas.ts";
+import { comboExample } from "../combos/combos.schemas.ts";
+import { itemExample } from "../items/items.schemas.ts";
 
-const menuSchema = {
+const menuCategoryExample = { ...categoryExample, items: [itemExample] };
+
+export const menuCategorySchema = {
+  $id: "MenuCategory",
+  type: "object",
+  description: "Uma categoria ativa com seus itens ativos, por nome.",
+  properties: {
+    ...categorySchema.properties,
+    items: { type: "array", items: { $ref: "Item#" } },
+  },
+  required: [...categorySchema.required, "items"],
+  examples: [menuCategoryExample],
+};
+
+export const menuSchema = {
+  $id: "Menu",
   type: "object",
   properties: {
     categories: {
       type: "array",
-      items: {
-        type: "object",
-        properties: {
-          ...categorySchema.properties,
-          items: { type: "array", items: itemSchema },
-        },
-      },
+      description:
+        "Categorias ativas em ordem, cada uma com seus itens ativos.",
+      items: { $ref: "MenuCategory#" },
     },
-    addons: { type: "array", items: addonSchema },
-    combos: { type: "array", items: comboSchema },
+    addons: {
+      type: "array",
+      description: "Todos os adicionais ativos.",
+      items: { $ref: "Addon#" },
+    },
+    combos: {
+      type: "array",
+      description: "Todos os combos ativos.",
+      items: { $ref: "Combo#" },
+    },
   },
+  required: ["categories", "addons", "combos"],
+  examples: [
+    {
+      categories: [menuCategoryExample],
+      addons: [addonExample],
+      combos: [comboExample],
+    },
+  ],
 };
 
-export const readMenuSchema = { response: { 200: menuSchema } };
+export const readMenuSchema = {
+  tags: ["cardapio"],
+  summary: "Ler o cardápio completo",
+  description:
+    "Devolve categorias com seus itens, adicionais e combos ativos, lidos num único snapshot consistente. É a chamada certa para a tela principal e para resolver os nomes que os combos referenciam por id. Não recebe parâmetros.",
+  response: {
+    200: { description: "Cardápio.", $ref: "Menu#" },
+    ...errors({}, { input: false }),
+  },
+};

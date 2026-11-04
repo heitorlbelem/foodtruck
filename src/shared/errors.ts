@@ -1,27 +1,53 @@
+import type { ErrorCode } from "./error-codes.ts";
+
+export type Ref = { id: string; name: string };
+
+export function names(refs: Ref[]): string {
+  return refs.map((ref) => ref.name).join(", ");
+}
+
+export type ErrorDetails = {
+  archived_id?: string;
+  items?: Ref[];
+  combos?: Ref[];
+  categories?: Ref[];
+  ids?: string[];
+  suggested_price_cents?: number;
+};
+
 export class AppError extends Error {
   readonly statusCode: number;
+  readonly code: ErrorCode;
+  readonly details: ErrorDetails | undefined;
 
-  constructor(statusCode: number, message: string) {
+  constructor(
+    statusCode: number,
+    code: ErrorCode,
+    message: string,
+    details?: ErrorDetails,
+  ) {
     super(message);
     this.name = new.target.name;
     this.statusCode = statusCode;
+    this.code = code;
+    this.details = details;
   }
 }
 
 export class NotFoundError extends AppError {
-  constructor(message: string) {
-    super(404, message);
+  constructor(code: ErrorCode, message: string) {
+    super(404, code, message);
   }
 }
 
 export class ConflictError extends AppError {
-  constructor(message: string) {
-    super(409, message);
+  constructor(code: ErrorCode, message: string, details?: ErrorDetails) {
+    super(409, code, message, details);
   }
 }
 
 export class UnprocessableError extends AppError {
-  constructor(message: string) {
-    super(422, message);
+  constructor(code: ErrorCode, message: string, details?: ErrorDetails) {
+    super(422, code, message, details);
   }
 }

@@ -8,6 +8,7 @@ import { API_V1_PREFIX } from "../../shared/api.ts";
 import { withTransaction } from "../../infra/db/transaction.ts";
 import {
   ConflictError,
+  names,
   NotFoundError,
   UnprocessableError,
 } from "../../shared/errors.ts";
@@ -43,16 +44,20 @@ export function makeItemService({ db }: { db: Pool }) {
       );
       const message = `an item named "${input.name}" already exists`;
 
-      return new ConflictError(
-        archivedId
-          ? `${message}, archived; restore it with POST ${API_V1_PREFIX}/items/${archivedId}/restore`
-          : message,
-      );
+      return archivedId
+        ? new ConflictError(
+            "NAME_TAKEN_ARCHIVED",
+            `${message}, archived; restore it with POST ${API_V1_PREFIX}/items/${archivedId}/restore`,
+            { archived_id: archivedId },
+          )
+        : new ConflictError("NAME_TAKEN", message);
     }
 
     if (isForeignKeyViolation(error)) {
       return new UnprocessableError(
+        "INVALID_REFERENCE",
         `category ${input.category_id} does not exist`,
+        { ids: [input.category_id!] },
       );
     }
 
@@ -85,7 +90,7 @@ export function makeItemService({ db }: { db: Pool }) {
           const updated = await makeItemRepository(tx).update(id, input);
 
           if (!updated) {
-            throw new NotFoundError("item not found");
+            throw new NotFoundError("ITEM_NOT_FOUND", "item not found");
           }
 
           const { foodtruck_id, ...item } = updated;
@@ -109,15 +114,17 @@ export function makeItemService({ db }: { db: Pool }) {
         const item = await repository.lock(id);
 
         if (!item || item.archived) {
-          throw new NotFoundError("item not found");
+          throw new NotFoundError("ITEM_NOT_FOUND", "item not found");
         }
 
         const combos =
-          await makeComboRepository(tx).liveNamesContainingItem(id);
+          await makeComboRepository(tx).liveCombosContainingItem(id);
 
         if (combos.length > 0) {
           throw new ConflictError(
-            `item is still used by combos: ${combos.join(", ")}`,
+            "IN_USE",
+            `item is still used by combos: ${names(combos)}`,
+            { combos },
           );
         }
 
@@ -131,11 +138,11 @@ export function makeItemService({ db }: { db: Pool }) {
         const item = await repository.lock(id);
 
         if (!item) {
-          throw new NotFoundError("item not found");
+          throw new NotFoundError("ITEM_NOT_FOUND", "item not found");
         }
 
         if (!item.archived) {
-          throw new ConflictError("item is not archived");
+          throw new ConflictError("NOT_ARCHIVED", "item is not archived");
         }
 
         const category = await makeCategoryRepository(tx).lockShared(
@@ -144,7 +151,9 @@ export function makeItemService({ db }: { db: Pool }) {
 
         if (category!.archived) {
           throw new ConflictError(
+            "RESTORE_BLOCKED",
             `item cannot be restored while these are archived: ${category!.name}`,
+            { categories: [{ id: category!.id, name: category!.name }] },
           );
         }
 
@@ -163,7 +172,9 @@ async function checkLiveCategory(
 
   if (!category || category.archived || category.foodtruck_id !== foodtruckId) {
     throw new UnprocessableError(
+      "INVALID_REFERENCE",
       `category ${categoryId} does not exist or is archived`,
+      { ids: [categoryId] },
     );
   }
 }
@@ -188,7 +199,9 @@ async function replaceChildren(
 
     if (unavailable.length > 0) {
       throw new UnprocessableError(
+        "INVALID_REFERENCE",
         `addons ${unavailable.join(", ")} do not exist or are archived`,
+        { ids: unavailable },
       );
     }
 

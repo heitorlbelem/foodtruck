@@ -10,8 +10,10 @@ import { comboRoutes } from "./modules/combos/combos.routes.ts";
 import { healthRoutes } from "./modules/health/health.routes.ts";
 import { itemRoutes } from "./modules/items/items.routes.ts";
 import { menuRoutes } from "./modules/menu/menu.routes.ts";
+import { registerOpenapi } from "./modules/openapi/openapi.plugin.ts";
 import { API_V1_PREFIX } from "./shared/api.ts";
-import { AppError } from "./shared/errors.ts";
+import type { ErrorCode } from "./shared/error-codes.ts";
+import { AppError, type ErrorDetails } from "./shared/errors.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -29,6 +31,7 @@ export function buildApp(
     ...opts,
   });
 
+  app.removeContentTypeParser("text/plain");
   app.decorate("db", db);
   app.db.on("error", (error) =>
     app.log.error({ err: error }, "idle database client error"),
@@ -38,14 +41,22 @@ export function buildApp(
   app.setNotFoundHandler((request, reply) =>
     reply
       .code(404)
-      .send(errorBody(404, `Route ${request.method}:${request.url} not found`)),
+      .send(
+        errorBody(
+          404,
+          "NOT_FOUND",
+          `Route ${request.method}:${request.url} not found`,
+        ),
+      ),
   );
 
   app.setErrorHandler((error: FastifyError | AppError, request, reply) => {
     if (error instanceof AppError) {
       return reply
         .code(error.statusCode)
-        .send(errorBody(error.statusCode, error.message));
+        .send(
+          errorBody(error.statusCode, error.code, error.message, error.details),
+        );
     }
 
     const statusCode = error.statusCode ?? 500;
@@ -57,10 +68,15 @@ export function buildApp(
     reply
       .code(statusCode)
       .send(
-        errorBody(statusCode, statusCode >= 500 ? undefined : error.message),
+        errorBody(
+          statusCode,
+          frameworkCode(error, statusCode),
+          statusCode >= 500 ? undefined : error.message,
+        ),
       );
   });
 
+  registerOpenapi(app);
   app.register(healthRoutes);
   app.register(
     async (v1) => {
@@ -76,10 +92,33 @@ export function buildApp(
   return app;
 }
 
-function errorBody(statusCode: number, message?: string) {
+function frameworkCode(error: FastifyError, statusCode: number): ErrorCode {
+  if (error.validation) {
+    return "VALIDATION_FAILED";
+  }
+
+  if (error.code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") {
+    return "UNSUPPORTED_MEDIA_TYPE";
+  }
+
+  if (error.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+    return "PAYLOAD_TOO_LARGE";
+  }
+
+  return statusCode >= 500 ? "INTERNAL_ERROR" : "MALFORMED_REQUEST";
+}
+
+function errorBody(
+  statusCode: number,
+  code: ErrorCode,
+  message?: string,
+  details?: ErrorDetails,
+) {
   return {
     status_code: statusCode,
     error: STATUS_CODES[statusCode],
+    code,
     message: message ?? STATUS_CODES[statusCode],
+    ...(details ? { details } : {}),
   };
 }

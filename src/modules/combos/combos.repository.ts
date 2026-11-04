@@ -1,4 +1,6 @@
 import type { Queryable } from "../../infra/db/pool.ts";
+import type { ListFilter } from "../../shared/api.ts";
+import type { Ref } from "../../shared/errors.ts";
 
 export type ComboComponent = {
   id: string;
@@ -42,12 +44,15 @@ const SELECT_COMBOS = `
 
 export function makeComboRepository(db: Queryable) {
   return {
-    async list(foodtruckId: string): Promise<ComboRow[]> {
+    async list(
+      foodtruckId: string,
+      { archived }: ListFilter = { archived: false },
+    ): Promise<ComboRow[]> {
       const { rows } = await db.query<ComboRow>(
         `${SELECT_COMBOS}
-          WHERE combo.foodtruck_id = $1 AND combo.archived_at IS NULL
+          WHERE combo.foodtruck_id = $1 AND (combo.archived_at IS NOT NULL) = $2
           ORDER BY combo.name`,
-        [foodtruckId],
+        [foodtruckId, archived],
       );
 
       return rows;
@@ -184,9 +189,9 @@ export function makeComboRepository(db: Queryable) {
       };
     },
 
-    async liveNamesWithSwapCategory(categoryId: string): Promise<string[]> {
-      const { rows } = await db.query<{ name: string }>(
-        `SELECT DISTINCT combo.name
+    async liveCombosWithSwapCategory(categoryId: string): Promise<Ref[]> {
+      const { rows } = await db.query<Ref>(
+        `SELECT DISTINCT combo.id, combo.name
            FROM combo_components component
            JOIN combos combo ON combo.id = component.combo_id
           WHERE component.swap_category_id = $1 AND combo.archived_at IS NULL
@@ -194,12 +199,12 @@ export function makeComboRepository(db: Queryable) {
         [categoryId],
       );
 
-      return rows.map((row) => row.name);
+      return rows;
     },
 
-    async liveNamesContainingItem(itemId: string): Promise<string[]> {
-      const { rows } = await db.query<{ name: string }>(
-        `SELECT DISTINCT combo.name
+    async liveCombosContainingItem(itemId: string): Promise<Ref[]> {
+      const { rows } = await db.query<Ref>(
+        `SELECT DISTINCT combo.id, combo.name
            FROM combo_components component
            JOIN combos combo ON combo.id = component.combo_id
           WHERE component.item_id = $1 AND combo.archived_at IS NULL
@@ -207,7 +212,7 @@ export function makeComboRepository(db: Queryable) {
         [itemId],
       );
 
-      return rows.map((row) => row.name);
+      return rows;
     },
   };
 }

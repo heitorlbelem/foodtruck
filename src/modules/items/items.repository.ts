@@ -1,4 +1,6 @@
 import type { Queryable } from "../../infra/db/pool.ts";
+import type { ListFilter } from "../../shared/api.ts";
+import type { Ref } from "../../shared/errors.ts";
 import type { Addon } from "../addons/addons.repository.ts";
 
 export type Item = {
@@ -26,7 +28,10 @@ const COLUMNS = "id, category_id, name, price_cents";
 
 export function makeItemRepository(db: Queryable) {
   return {
-    async list(foodtruckId: string): Promise<Item[]> {
+    async list(
+      foodtruckId: string,
+      { archived }: ListFilter = { archived: false },
+    ): Promise<Item[]> {
       const { rows } = await db.query<Item>(
         `SELECT ${COLUMNS},
                 coalesce(
@@ -50,9 +55,9 @@ export function makeItemRepository(db: Queryable) {
                   '[]'
                 ) AS addons
            FROM items
-          WHERE foodtruck_id = $1 AND archived_at IS NULL
+          WHERE foodtruck_id = $1 AND (archived_at IS NOT NULL) = $2
           ORDER BY name`,
-        [foodtruckId],
+        [foodtruckId, archived],
       );
 
       return rows;
@@ -203,20 +208,20 @@ export function makeItemRepository(db: Queryable) {
       return rows;
     },
 
-    async liveNamesInCategory(categoryId: string): Promise<string[]> {
-      const { rows } = await db.query<{ name: string }>(
-        `SELECT name FROM items
+    async liveItemsInCategory(categoryId: string): Promise<Ref[]> {
+      const { rows } = await db.query<Ref>(
+        `SELECT id, name FROM items
           WHERE category_id = $1 AND archived_at IS NULL
           ORDER BY name`,
         [categoryId],
       );
 
-      return rows.map((row) => row.name);
+      return rows;
     },
 
-    async liveNamesAcceptingAddon(addonId: string): Promise<string[]> {
-      const { rows } = await db.query<{ name: string }>(
-        `SELECT item.name
+    async liveItemsAcceptingAddon(addonId: string): Promise<Ref[]> {
+      const { rows } = await db.query<Ref>(
+        `SELECT item.id, item.name
            FROM item_addons link
            JOIN items item ON item.id = link.item_id
           WHERE link.addon_id = $1 AND item.archived_at IS NULL
@@ -224,7 +229,7 @@ export function makeItemRepository(db: Queryable) {
         [addonId],
       );
 
-      return rows.map((row) => row.name);
+      return rows;
     },
   };
 }

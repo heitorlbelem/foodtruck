@@ -187,6 +187,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(unknown);
     expect(await countCombos()).toBe(0);
   });
@@ -197,6 +198,7 @@ describe("combos", () => {
     const response = await inject("POST", "/combos", classic());
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(fries.id);
     expect(response.json().message).not.toContain(burger.id);
     expect(await countCombos()).toBe(0);
@@ -213,6 +215,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect(response.json().message).toContain(unknown);
     expect(await countCombos()).toBe(0);
   });
@@ -282,6 +285,7 @@ describe("combos", () => {
     const response = await inject("POST", "/combos", classic());
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
     expect(response.json().message).toContain("Combo Clássico");
     expect(await countCombos()).toBe(1);
   });
@@ -355,6 +359,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("INVALID_REFERENCE");
     expect((await inject("GET", "/combos")).json()[0]).toMatchObject({
       price_cents: 4400,
       components: [
@@ -374,6 +379,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("NAME_TAKEN");
   });
 
   it("answers 400 for an id that is not a uuid", async () => {
@@ -389,6 +395,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("COMBO_NOT_FOUND");
     expect(response.json().message).toBe("combo not found");
   });
 
@@ -406,6 +413,7 @@ describe("combos", () => {
     const response = await inject("DELETE", `/combos/${randomUUID()}`);
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("COMBO_NOT_FOUND");
     expect(response.json().message).toBe("combo not found");
   });
 
@@ -418,6 +426,7 @@ describe("combos", () => {
     });
 
     expect(response.statusCode).toBe(404);
+    expect(response.json().code).toBe("COMBO_NOT_FOUND");
     expect(response.json().message).toBe("combo not found");
   });
 });
@@ -435,6 +444,7 @@ describe("archiving a category that is a swap category", () => {
     const response = await inject("DELETE", `/categories/${desserts.id}`);
 
     expect(response.statusCode).toBe(409);
+    expect(response.json().code).toBe("IN_USE");
     expect(response.json().message).toContain("Sobremesas");
     expect(response.json().message).toContain("Combo Clássico");
     expect(response.json().message).not.toContain("items");

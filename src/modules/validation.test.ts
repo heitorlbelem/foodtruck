@@ -166,6 +166,7 @@ describe("numbers beyond what the database holds", () => {
     });
 
     expect(response.statusCode).toBe(422);
+    expect(response.json().code).toBe("SUGGESTED_PRICE_TOO_HIGH");
     expect(response.json().message).toContain("price_cents");
     expect(await count("combos")).toBe(1);
   });

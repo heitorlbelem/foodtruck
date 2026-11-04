@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 
+import type { ArchivedQuery } from "../../shared/api.ts";
 import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
 import { makeItemRepository } from "./items.repository.ts";
 import {
@@ -18,8 +19,13 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
   const items = makeItemRepository(app.db);
   const service = makeItemService({ db: app.db });
 
-  app.get("/items", { schema: listItemsSchema }, async () =>
-    items.list(await foodtrucks.currentId()),
+  app.get<{ Querystring: ArchivedQuery }>(
+    "/items",
+    { schema: listItemsSchema },
+    async (request) =>
+      items.list(await foodtrucks.currentId(), {
+        archived: request.query.archived === "true",
+      }),
   );
 
   app.post<{ Body: ItemInput }>(
