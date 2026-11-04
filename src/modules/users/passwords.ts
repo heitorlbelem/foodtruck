@@ -25,8 +25,11 @@ export async function verifyPassword(
 ): Promise<boolean> {
   try {
     return await verify(passwordHash, password);
-  } catch {
-    return false;
+  } catch (error) {
+    if ((error as { code?: unknown }).code === "InvalidArg") {
+      return false;
+    }
+    throw error;
   }
 }
 

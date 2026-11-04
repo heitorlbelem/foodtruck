@@ -7,7 +7,7 @@ import { authHeaders } from "./modules/auth/testing.ts";
 
 describe("error codes", () => {
   const app = buildApp();
-  app.get("/__boom", async () => {
+  app.get("/__boom", { config: { public: true } }, async () => {
     throw new Error("secret");
   });
 
@@ -136,7 +136,7 @@ describe("body limit", () => {
 
 describe("behind a proxy", () => {
   const app = buildApp();
-  app.get("/__ip", async (request) => ({
+  app.get("/__ip", { config: { public: true } }, async (request) => ({
     ip: request.ip,
     protocol: request.protocol,
   }));

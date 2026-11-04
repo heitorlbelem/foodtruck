@@ -5,5 +5,8 @@ export const ROLE_PERMISSIONS: Record<string, readonly Permission[]> = {
 };
 
 export function can(role: string, permission: Permission): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+  return (
+    Object.hasOwn(ROLE_PERMISSIONS, role) &&
+    ROLE_PERMISSIONS[role]!.includes(permission)
+  );
 }

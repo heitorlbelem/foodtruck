@@ -144,9 +144,31 @@ async function run(): Promise<void> {
   }
 }
 
+function describeError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return String(error);
+  }
+
+  if (error.message) {
+    return error.message;
+  }
+
+  const inner =
+    error instanceof AggregateError
+      ? error.errors.map(describeError).filter(Boolean)
+      : [];
+  const code = (error as { code?: unknown }).code;
+
+  return (
+    [...new Set(inner)].join("; ") ||
+    (typeof code === "string" ? code : "") ||
+    error.name
+  );
+}
+
 try {
   await run();
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(describeError(error));
   process.exitCode = 1;
 }

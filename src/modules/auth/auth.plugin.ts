@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
 import { AppError } from "../../shared/errors.ts";
-import { API_V1_PREFIX } from "../../shared/api.ts";
 import { can, type Permission } from "./permissions.ts";
 import { makeLoginLimiter, type LoginLimiter } from "./login-limiter.ts";
 import { loadJwtSecret, verifyAccessToken } from "./tokens.ts";
@@ -23,7 +22,14 @@ declare module "fastify" {
   }
 }
 
-const BEARER = /^Bearer ([^\s]+)$/;
+const BEARER = /^Bearer ([^\s]+)$/i;
+const OPEN_PREFIXES = ["/health", "/docs", "/openapi.json"];
+
+function isOpen(url: string): boolean {
+  return OPEN_PREFIXES.some(
+    (prefix) => url === prefix || url.startsWith(`${prefix}/`),
+  );
+}
 
 export function registerAuth(app: FastifyInstance): void {
   app.decorate("auth", {
@@ -35,11 +41,7 @@ export function registerAuth(app: FastifyInstance): void {
   app.addHook("onRoute", (route) => {
     const config = route.config ?? {};
 
-    if (
-      route.url.startsWith(API_V1_PREFIX) &&
-      !config.permission &&
-      !config.public
-    ) {
+    if (!isOpen(route.url) && !config.permission && !config.public) {
       const method = [route.method].flat().join(",");
       throw new Error(`route ${method} ${route.url} declares no permission`);
     }

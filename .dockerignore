@@ -9,6 +9,7 @@ docs
 .env.*
 
 **/*.test.ts
+src/modules/auth/testing.ts
 vitest.config.ts
 tsconfig.json
 .prettierrc

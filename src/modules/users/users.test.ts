@@ -1,10 +1,24 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import * as argon2 from "@node-rs/argon2";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { buildApp } from "../../app.ts";
 import { resetCatalog } from "../../infra/db/testing.ts";
 import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
 import { checkPassword, hashPassword, verifyPassword } from "./passwords.ts";
 import { makeUserRepository } from "./users.repository.ts";
+
+vi.mock("@node-rs/argon2", async (importOriginal) => {
+  const actual = await importOriginal<typeof argon2>();
+  return { ...actual, verify: vi.fn(actual.verify) };
+});
 
 const app = buildApp();
 
@@ -30,6 +44,17 @@ describe("passwords", () => {
     expect(hash.startsWith("$argon2id$")).toBe(true);
     expect(await verifyPassword(hash, "correct horse battery")).toBe(true);
     expect(await verifyPassword(hash, "wrong")).toBe(false);
+  });
+
+  it("treats only a malformed hash as a mismatch", async () => {
+    expect(await verifyPassword("not-a-hash", "correct horse battery")).toBe(
+      false,
+    );
+
+    vi.mocked(argon2.verify).mockRejectedValueOnce(new Error("binding failed"));
+    await expect(
+      verifyPassword(await hashPassword("x".repeat(12)), "x".repeat(12)),
+    ).rejects.toThrow("binding failed");
   });
 
   it("checks password length", () => {

@@ -99,6 +99,34 @@ describe("authorization", () => {
     expect(response.json().code).toBe("FORBIDDEN");
   });
 
+  it("forbids roles named after object prototype properties", async () => {
+    for (const role of ["constructor", "__proto__", "toString"]) {
+      const response = await app.inject({
+        method: "GET",
+        url: `${API_V1_PREFIX}/menu`,
+        headers: await authHeaders(app, role),
+      });
+
+      expect(response.statusCode, role).toBe(403);
+      expect(response.json().code, role).toBe("FORBIDDEN");
+    }
+  });
+
+  it("accepts the bearer scheme in any case", async () => {
+    const { authorization } = await authHeaders(app);
+    const token = authorization.slice("Bearer ".length);
+
+    for (const scheme of ["bearer", "BEARER"]) {
+      const response = await app.inject({
+        method: "GET",
+        url: `${API_V1_PREFIX}/menu`,
+        headers: { authorization: `${scheme} ${token}` },
+      });
+
+      expect(response.statusCode, scheme).toBe(200);
+    }
+  });
+
   it("allows the owner", async () => {
     const response = await app.inject({
       method: "GET",
@@ -122,8 +150,28 @@ describe("authorization", () => {
     await bad.close().catch(() => {});
   });
 
+  it("refuses to boot with an undeclared route outside /api/v1", async () => {
+    const bad = buildApp();
+    bad.register(async (root) => {
+      root.get("/admin", async () => ({}));
+    });
+
+    await expect(bad.ready()).rejects.toThrow(
+      /route GET \/admin declares no permission/,
+    );
+    await bad.close().catch(() => {});
+  });
+
   it("keeps health, docs and the contract public", async () => {
-    for (const url of ["/health/live", "/openapi.json", "/docs"]) {
+    for (const url of [
+      "/health/live",
+      "/health",
+      "/openapi.json",
+      "/docs",
+      "/docs/",
+      "/docs/json",
+      "/docs/static/index.html",
+    ]) {
       const response = await app.inject({ method: "GET", url });
 
       expect(response.statusCode, url).not.toBe(401);

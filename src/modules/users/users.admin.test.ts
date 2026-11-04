@@ -124,6 +124,7 @@ describe("users admin", () => {
 
     await setUserActive(db, EMAIL, true);
 
+    await expect(auth.refresh(pair.refresh_token)).rejects.toThrow();
     await expect(auth.login(EMAIL, PASSWORD, META)).resolves.toBeDefined();
   });
 

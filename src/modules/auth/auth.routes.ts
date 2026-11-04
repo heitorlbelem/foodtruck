@@ -36,18 +36,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         );
       }
 
-      try {
-        const pair = await service.login(email, password, {
-          ip,
-          ...(request.headers["user-agent"]
-            ? { userAgent: request.headers["user-agent"] }
-            : {}),
-        });
-        await limiter.succeed(email, ip);
-        return pair;
-      } catch (error) {
-        throw error;
-      }
+      const pair = await service.login(email, password, {
+        ip,
+        ...(request.headers["user-agent"]
+          ? { userAgent: request.headers["user-agent"] }
+          : {}),
+      });
+      await limiter.succeed(email, ip);
+      return pair;
     },
   );
 
