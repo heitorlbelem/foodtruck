@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { buildApp } from "../app.ts";
-import { resetCatalog } from "../infra/db/testing.ts";
+import { buildApp } from "../../app.ts";
+import { resetCatalog } from "../../infra/db/testing.ts";
 
 const app = buildApp();
 
