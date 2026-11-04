@@ -10,6 +10,7 @@ import { comboRoutes } from "./modules/combos/combos.routes.ts";
 import { healthRoutes } from "./modules/health/health.routes.ts";
 import { itemRoutes } from "./modules/items/items.routes.ts";
 import { menuRoutes } from "./modules/menu/menu.routes.ts";
+import { registerOpenapi } from "./modules/openapi/openapi.plugin.ts";
 import { API_V1_PREFIX } from "./shared/api.ts";
 import type { ErrorCode } from "./shared/error-codes.ts";
 import { AppError, type ErrorDetails } from "./shared/errors.ts";
@@ -74,6 +75,7 @@ export function buildApp(
       );
   });
 
+  registerOpenapi(app);
   app.register(healthRoutes);
   app.register(
     async (v1) => {

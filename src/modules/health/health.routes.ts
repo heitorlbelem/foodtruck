@@ -8,13 +8,18 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     "/health/live",
-    { schema: { response: { 200: liveSchema } } },
+    { schema: { hide: true, response: { 200: liveSchema } } },
     async () => ({ status: "ok" }),
   );
 
   app.get(
     "/health",
-    { schema: { response: { 200: healthSchema, 503: healthSchema } } },
+    {
+      schema: {
+        hide: true,
+        response: { 200: healthSchema, 503: healthSchema },
+      },
+    },
     async (request, reply) => {
       const { error, status, serverVersion, latencyMs, pool } =
         await health.checkDatabase();
