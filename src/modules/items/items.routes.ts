@@ -21,7 +21,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<{ Querystring: ArchivedQuery }>(
     "/items",
-    { schema: listItemsSchema },
+    { schema: listItemsSchema, config: { permission: "catalog:read" } },
     async (request) =>
       items.list(await foodtrucks.currentId(), {
         archived: request.query.archived === "true",
@@ -30,7 +30,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Body: ItemInput }>(
     "/items",
-    { schema: createItemSchema },
+    { schema: createItemSchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       const item = await service.create(
         await foodtrucks.currentId(),
@@ -43,7 +43,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: IdParams; Body: Partial<ItemInput> }>(
     "/items/:id",
-    { schema: updateItemSchema },
+    { schema: updateItemSchema, config: { permission: "catalog:write" } },
     async (request) =>
       service.update(
         await foodtrucks.currentId(),
@@ -54,7 +54,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete<{ Params: IdParams }>(
     "/items/:id",
-    { schema: archiveItemSchema },
+    { schema: archiveItemSchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       await service.archive(request.params.id);
 
@@ -64,7 +64,7 @@ export const itemRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Params: IdParams }>(
     "/items/:id/restore",
-    { schema: restoreItemSchema },
+    { schema: restoreItemSchema, config: { permission: "catalog:write" } },
     async (request) => service.restore(request.params.id),
   );
 };

@@ -1,4 +1,4 @@
-import { errors } from "../../shared/schemas.ts";
+import { bearer, errors } from "../../shared/schemas.ts";
 import { addonExample } from "../addons/addons.schemas.ts";
 import {
   categoryExample,
@@ -54,6 +54,7 @@ export const menuSchema = {
 
 export const readMenuSchema = {
   tags: ["cardapio"],
+  security: bearer,
   summary: "Ler o cardápio completo",
   description:
     "Devolve categorias com seus itens, adicionais e combos ativos, lidos num único snapshot consistente. É a chamada certa para a tela principal e para resolver os nomes que os combos referenciam por id. Não recebe parâmetros.",

@@ -7,6 +7,11 @@ export const GUIDE = readFileSync(
 
 export const TAGS = [
   {
+    name: "autenticacao",
+    description:
+      "Login, renovação e encerramento de sessão. O login devolve um `access_token` de 15 minutos, enviado em `Authorization: Bearer`, e um `refresh_token` de uso único. A sessão dura 24 horas e renovar não a estende. Muitas falhas de login bloqueiam o e-mail ou o IP por 15 minutos (429 com `Retry-After`). Todas as respostas desta área vêm com `Cache-Control: no-store`.",
+  },
+  {
     name: "categorias",
     description:
       "Categorias agrupam os itens no cardápio e são o primeiro cadastro: todo item exige uma categoria ativa. A ordem no cardápio vem de `sort_order` (menor primeiro) e depois do nome. Uma categoria não pode ser arquivada enquanto tiver itens ativos ou for categoria de troca de um combo ativo; o 409 `IN_USE` lista quem a usa.",

@@ -2,7 +2,11 @@ import { Validator } from "@seriousme/openapi-schema-validator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../../app.ts";
+import { authHeaders } from "../auth/testing.ts";
 import { resetCatalog } from "../../infra/db/testing.ts";
+import { makeFoodtruckRepository } from "../foodtruck/foodtruck.repository.ts";
+import { hashPassword } from "../users/passwords.ts";
+import { makeUserRepository } from "../users/users.repository.ts";
 import { ERROR_CODES } from "../../shared/error-codes.ts";
 import { TAGS } from "./guide.ts";
 
@@ -10,6 +14,7 @@ type Operation = {
   summary?: string;
   description?: string;
   tags?: string[];
+  security?: unknown[];
   parameters?: { name: string }[];
   responses: Record<string, any>;
 };
@@ -76,7 +81,11 @@ describe("openapi document", () => {
         TAGS.map((tag) => tag.name),
         label,
       ).toContain(op.tags![0]);
-      if (url === "/api/v1/menu") {
+      if (
+        url === "/api/v1/menu" ||
+        url === "/api/v1/auth/me" ||
+        url === "/api/v1/auth/logout"
+      ) {
         expect(op.responses["400"], label).toBeUndefined();
       } else {
         expect(errorEnum(op.responses["400"]), label).toEqual([...ERROR_CODES]);
@@ -84,13 +93,23 @@ describe("openapi document", () => {
 
       expect(errorEnum(op.responses["500"]), label).toEqual([...ERROR_CODES]);
 
+      const isPublic = ["/api/v1/auth/login", "/api/v1/auth/refresh"].includes(
+        url,
+      );
+      expect(op.security, label).toEqual(
+        isPublic ? undefined : [{ bearerAuth: [] }],
+      );
+      expect(Boolean(op.responses["401"]), label).toBe(true);
+      expect(Boolean(op.responses["403"]), label).toBe(!isPublic);
+
       if (url.includes(":id")) {
         expect(op.responses["404"], label).toBeDefined();
       }
 
       if (
         (method === "post" || method === "patch") &&
-        !url.endsWith("/restore")
+        !url.endsWith("/restore") &&
+        !url.endsWith("/auth/logout")
       ) {
         expect(op.responses["413"], label).toBeDefined();
         expect(op.responses["415"], label).toBeDefined();
@@ -128,6 +147,19 @@ describe("openapi document", () => {
         resource,
       ).toBeDefined();
     }
+  });
+
+  it("declares the bearer scheme and the login rate limit", () => {
+    expect(doc.components.securitySchemes.bearerAuth).toEqual({
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+    });
+    expect(
+      operation("post", "/api/v1/auth/login").responses["429"],
+    ).toBeDefined();
+    expect(operation("post", "/api/v1/auth/login").security).toBeUndefined();
+    expect(operation("post", "/api/v1/auth/refresh").security).toBeUndefined();
   });
 
   it("names the shared schemas and marks always-present fields as required", () => {
@@ -198,6 +230,8 @@ describe("openapi document", () => {
       "Combo",
       "MenuCategory",
       "Menu",
+      "TokenPair",
+      "AuthUser",
     ]) {
       expect(schemas[name].examples?.length, name).toBeGreaterThan(0);
     }
@@ -256,6 +290,28 @@ describe("openapi document", () => {
 });
 
 describe("integration guide", () => {
+  it("explains the login flow", () => {
+    const guide: string = doc.info.description;
+
+    for (const text of [
+      "## Autenticação",
+      "expo-secure-store",
+      "/api/v1/auth/refresh",
+      "/api/v1/auth/login",
+      "/api/v1/auth/logout",
+      "/api/v1/auth/me",
+      "INVALID_REFRESH_TOKEN",
+      "Retry-After",
+      "refresh_expires_at",
+      "E-mail ou senha incorretos.",
+      "Você não tem permissão para isso.",
+    ]) {
+      expect(guide, text).toContain(text);
+    }
+    expect(guide).not.toContain("não há autenticação");
+    expect(guide).not.toContain("relatórios, usuários");
+  });
+
   it("carries the integration guide", () => {
     const guide: string = doc.info.description;
 
@@ -264,6 +320,7 @@ describe("integration guide", () => {
       "## Primeiro acesso",
       "## Lendo o cardápio",
       "## Regras",
+      "## Autenticação",
       "## Erros",
       "## Arquivar e restaurar",
       "## O que ainda não existe",
@@ -281,12 +338,46 @@ describe("integration guide", () => {
   });
 });
 
+describe("bearer token from login", () => {
+  beforeEach(async () => {
+    await resetCatalog(app.db);
+    app.auth.limiter.clear();
+    await makeUserRepository(app.db).create({
+      foodtruckId: await makeFoodtruckRepository(app.db).currentId(),
+      name: "Dono",
+      email: "dono@foodtruck.com",
+      passwordHash: await hashPassword("correct horse battery"),
+      role: "owner",
+    });
+  });
+
+  it("accepts the login access token on a protected route", async () => {
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/v1/auth/login",
+      payload: {
+        email: "dono@foodtruck.com",
+        password: "correct horse battery",
+      },
+    });
+    const menu = await app.inject({
+      method: "GET",
+      url: "/api/v1/menu",
+      headers: { authorization: `Bearer ${login.json().access_token}` },
+    });
+
+    expect(login.statusCode).toBe(200);
+    expect(menu.statusCode).toBe(200);
+  });
+});
+
 describe("error responses with declared schemas", () => {
   beforeEach(() => resetCatalog(app.db));
 
   it("keeps details after declaring error schemas", async () => {
+    const headers = await authHeaders(app);
     const post = async (url: string, payload: object) =>
-      (await app.inject({ method: "POST", url, payload })).json();
+      (await app.inject({ method: "POST", url, payload, headers })).json();
     const snacks = await post("/api/v1/categories", { name: "Lanches" });
     const bacon = await post("/api/v1/addons", {
       name: "Bacon",
@@ -302,6 +393,7 @@ describe("error responses with declared schemas", () => {
     const response = await app.inject({
       method: "DELETE",
       url: `/api/v1/addons/${bacon.id}`,
+      headers,
     });
 
     expect(response.statusCode).toBe(409);

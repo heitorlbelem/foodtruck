@@ -4,7 +4,7 @@ API do cardápio de um foodtruck. Este guia é para quem vai construir o app da 
 
 A dona do foodtruck, em casa e sem pressa, cadastrando o cardápio pela primeira vez. Ela não é técnica. O app precisa ser simples, bonito, minimalista e óbvio de usar: poucas telas, um passo de cada vez, sem jargão (diga "arquivar", nunca "soft delete"; "preço", nunca "price_cents").
 
-Existe **um único foodtruck** e **não há autenticação**. Não crie tela de login nem seletor de foodtruck.
+O app tem uma **tela de login** (e-mail e senha). Não existe cadastro de conta, "esqueci a senha" nem troca de senha no app: as contas são criadas pelo administrador. Existe **um único foodtruck**: não crie seletor de foodtruck.
 
 ## Modelo do cardápio
 
@@ -44,6 +44,23 @@ Cada estado vazio deve apontar o próximo passo ("Nenhuma categoria ainda. Crie 
 - **As listagens aceitam só `?archived`.** Qualquer parâmetro de query desconhecido (por exemplo, um `?_=123` para furar cache) é recusado com `VALIDATION_FAILED`. As demais rotas ignoram a query.
 - `DELETE` e `POST /:id/restore` não têm corpo: **não envie `Content-Type: application/json` neles**. Um corpo vazio com esse header é recusado com `MALFORMED_REQUEST`.
 
+## Autenticação
+
+Toda rota de `/api/v1` exige `Authorization: Bearer <access_token>`, inclusive `/menu`. Só `POST /api/v1/auth/login` e `POST /api/v1/auth/refresh` são abertas. Todas as respostas de `/api/v1/auth/*` vêm com `Cache-Control: no-store`.
+
+O fluxo, na ordem:
+
+1. **Login**: `POST /api/v1/auth/login` com `{ email, password }` devolve `{ access_token, token_type, expires_in, refresh_token, refresh_expires_at, user }`. O `access_token` vale 15 minutos (`expires_in: 900`).
+2. **Guarde os tokens com cuidado**: o `refresh_token` fica em `expo-secure-store`, nunca em AsyncStorage nem localStorage. O `access_token` fica só em memória.
+3. **Toda requisição** leva `Authorization: Bearer <access_token>`.
+4. **Renovação**: quando uma requisição devolve 401 `UNAUTHENTICATED`, chame `POST /api/v1/auth/refresh` com `{ refresh_token }` **uma vez**, grave o novo `refresh_token` no `expo-secure-store` **antes** de qualquer outra coisa e só então repita a requisição original com o novo `access_token`. Se várias requisições falharem ao mesmo tempo, todas esperam a mesma renovação: duas renovações em paralelo com o mesmo token encerram a sessão.
+5. **O refresh token roda**: cada renovação devolve um novo `refresh_token` e invalida o anterior. Guarde sempre o novo. Reapresentar um token já usado encerra a sessão inteira.
+6. **Fim da sessão**: só o 401 `INVALID_REFRESH_TOKEN` da renovação encerra a sessão: limpe o armazenamento e vá para o login. Erro de rede ou 5xx (`INTERNAL_ERROR`) na renovação **não** desloga a dona: mantenha o `refresh_token` guardado, mostre que não deu para conectar e tente de novo depois. A sessão termina 24 horas depois do login (`refresh_expires_at`), mesmo com o app em uso e com renovações; depois disso a dona entra de novo.
+7. **Sair**: o botão "Sair" chama `POST /api/v1/auth/logout` (com o bearer; responde 204) e limpa o armazenamento **mesmo que o logout falhe** (access token vencido, sem internet, erro do servidor). A dona apertou "Sair": ela sai.
+8. **Ao abrir o app**: se houver `refresh_token` guardado, renove e chame `GET /api/v1/auth/me`, que devolve `{ id, name, email, role }`, para saber quem está logada. Sem token guardado, mostre o login. Aqui vale a mesma regra do item 6: só `INVALID_REFRESH_TOKEN` manda para o login; sem rede ou com 5xx, mantenha o token e ofereça tentar de novo.
+
+Falhas de login em excesso bloqueiam por 15 minutos (5 falhas por e-mail ou 20 por IP). O 429 `TOO_MANY_ATTEMPTS` traz o `Retry-After` em segundos, também em `details.retry_after_seconds`. Um 403 `FORBIDDEN` existe para papéis futuros; a dona (`owner`) nunca o recebe hoje.
+
 ## Erros
 
 Toda resposta de erro tem o formato `{ status_code, error, code, message, details? }`. **Traduza a partir de `code`, nunca de `message`**: `message` é em inglês e serve só para depuração. `details` aparece apenas nos códigos indicados abaixo.
@@ -66,6 +83,11 @@ Toda resposta de erro tem o formato `{ status_code, error, code, message, detail
 | `RESTORE_BLOCKED`          | 409    | a restauração foi bloqueada porque algo de que o registro depende está arquivado | `items`, `categories`                        | "Restaure antes: Categoria X." com atalho                                                   |
 | `INVALID_REFERENCE`        | 422    | aponta para categoria, item ou adicional inexistente ou arquivado                | `ids`                                        | recarregue as opções do formulário                                                          |
 | `SUGGESTED_PRICE_TOO_HIGH` | 422    | combo sem preço cuja soma passa do teto                                          | `suggested_price_cents`                      | peça para a dona informar o preço do combo                                                  |
+| `UNAUTHENTICATED`          | 401    | falta o token de acesso, ou ele é inválido ou expirou                            | —                                            | renove com o refresh token uma vez e repita a requisição (veja Autenticação)                |
+| `FORBIDDEN`                | 403    | o usuário não tem permissão para a ação                                          | —                                            | "Você não tem permissão para isso."                                                         |
+| `INVALID_CREDENTIALS`      | 401    | e-mail ou senha incorretos no login                                              | —                                            | "E-mail ou senha incorretos."                                                               |
+| `INVALID_REFRESH_TOKEN`    | 401    | o refresh token é inválido, já foi usado ou a sessão terminou                    | —                                            | limpe o armazenamento e volte para o login                                                  |
+| `TOO_MANY_ATTEMPTS`        | 429    | tentativas de login demais em pouco tempo                                        | `retry_after_seconds`                        | "Muitas tentativas. Tente de novo em N minutos." a partir de `Retry-After`                  |
 | `INTERNAL_ERROR`           | 500    | erro inesperado                                                                  | —                                            | "Algo deu errado. Tente de novo."                                                           |
 
 Para cada rota, a descrição de cada resposta de erro lista os códigos que ela pode devolver.
@@ -81,4 +103,4 @@ Nada é apagado. `DELETE` **arquiva**: o registro some das listagens e do `/menu
 
 ## O que ainda não existe
 
-Pedidos, operações (eventos, noites de praça), caixa, relatórios, usuários e preços por evento ainda **não existem** nesta API. Não crie telas nem dados de exemplo para eles. Por enquanto, o app é o cadastro do cardápio.
+Pedidos, operações (eventos, noites de praça), caixa, relatórios e preços por evento ainda **não existem** nesta API. Não crie telas nem dados de exemplo para eles. Por enquanto, o app é o cadastro do cardápio.

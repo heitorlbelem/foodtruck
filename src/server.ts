@@ -3,7 +3,9 @@ import { buildApp } from "./app.ts";
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "0.0.0.0";
 
-const app = buildApp({ logger: true });
+const app = buildApp({
+  logger: { redact: ["req.headers.authorization"] },
+});
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, async () => {

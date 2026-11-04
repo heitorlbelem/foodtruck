@@ -1,11 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../../app.ts";
+import { authHeaders } from "../auth/testing.ts";
 import { resetCatalog } from "../../infra/db/testing.ts";
 
 const app = buildApp();
 
-beforeAll(() => app.ready());
+let headers: { authorization: string };
+
+beforeAll(async () => {
+  await app.ready();
+  headers = await authHeaders(app);
+});
 afterAll(() => app.close());
 
 function inject(
@@ -14,6 +20,7 @@ function inject(
   payload?: object,
 ) {
   return app.inject({
+    headers,
     method,
     url: `/api/v1${url}`,
     ...(payload ? { payload } : {}),

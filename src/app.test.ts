@@ -3,18 +3,25 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 
 import { buildApp } from "./app.ts";
+import { authHeaders } from "./modules/auth/testing.ts";
 
 describe("error codes", () => {
   const app = buildApp();
-  app.get("/__boom", async () => {
+  app.get("/__boom", { config: { public: true } }, async () => {
     throw new Error("secret");
   });
 
-  beforeAll(() => app.ready());
+  let headers: { authorization: string };
+
+  beforeAll(async () => {
+    await app.ready();
+    headers = await authHeaders(app);
+  });
   afterAll(() => app.close());
 
   it("answers VALIDATION_FAILED for a body that breaks the schema", async () => {
     const response = await app.inject({
+      headers,
       method: "POST",
       url: "/api/v1/addons",
       payload: { name: "", price_cents: 1 },
@@ -28,7 +35,10 @@ describe("error codes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/addons",
-      headers: { "content-type": "application/json" },
+      headers: {
+        ...headers,
+        "content-type": "application/json",
+      },
       payload: "{",
     });
 
@@ -40,7 +50,10 @@ describe("error codes", () => {
     const response = await app.inject({
       method: "DELETE",
       url: `/api/v1/addons/${randomUUID()}`,
-      headers: { "content-type": "application/json" },
+      headers: {
+        ...headers,
+        "content-type": "application/json",
+      },
     });
 
     expect(response.statusCode).toBe(400);
@@ -51,7 +64,10 @@ describe("error codes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/addons",
-      headers: { "content-type": "text/xml" },
+      headers: {
+        ...headers,
+        "content-type": "text/xml",
+      },
       payload: "<addon/>",
     });
 
@@ -63,7 +79,10 @@ describe("error codes", () => {
     const response = await app.inject({
       method: "POST",
       url: "/api/v1/addons",
-      headers: { "content-type": "text/plain" },
+      headers: {
+        ...headers,
+        "content-type": "text/plain",
+      },
       payload: "Bacon",
     });
 
@@ -94,11 +113,17 @@ describe("error codes", () => {
 describe("body limit", () => {
   const app = buildApp({ bodyLimit: 10 });
 
-  beforeAll(() => app.ready());
+  let headers: { authorization: string };
+
+  beforeAll(async () => {
+    await app.ready();
+    headers = await authHeaders(app);
+  });
   afterAll(() => app.close());
 
   it("answers PAYLOAD_TOO_LARGE above the body limit", async () => {
     const response = await app.inject({
+      headers,
       method: "POST",
       url: "/api/v1/addons",
       payload: { name: "x".repeat(100), price_cents: 1 },
@@ -111,7 +136,7 @@ describe("body limit", () => {
 
 describe("behind a proxy", () => {
   const app = buildApp();
-  app.get("/__ip", async (request) => ({
+  app.get("/__ip", { config: { public: true } }, async (request) => ({
     ip: request.ip,
     protocol: request.protocol,
   }));
@@ -136,12 +161,18 @@ describe("behind a proxy", () => {
 describe("api versioning", () => {
   const app = buildApp();
 
-  beforeAll(() => app.ready());
+  let headers: { authorization: string };
+
+  beforeAll(async () => {
+    await app.ready();
+    headers = await authHeaders(app);
+  });
   afterAll(() => app.close());
 
   it("serves the catalog under /api/v1", async () => {
     for (const path of ["categories", "items", "addons", "combos", "menu"]) {
       const response = await app.inject({
+        headers,
         method: "GET",
         url: `/api/v1/${path}`,
       });
@@ -172,7 +203,12 @@ describe("api versioning", () => {
 describe("an unexpected error on a documented route", () => {
   const app = buildApp();
 
-  beforeAll(() => app.ready());
+  let headers: { authorization: string };
+
+  beforeAll(async () => {
+    await app.ready();
+    headers = await authHeaders(app);
+  });
   afterAll(() => app.close());
 
   it("answers INTERNAL_ERROR through the declared 500 schema", async () => {
@@ -183,6 +219,7 @@ describe("an unexpected error on a documented route", () => {
 
     try {
       const response = await app.inject({
+        headers,
         method: "GET",
         url: "/api/v1/addons",
       });

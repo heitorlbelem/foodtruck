@@ -80,6 +80,7 @@ export const errorSchema = {
         categories: refList,
         ids: { type: "array", items: idField },
         suggested_price_cents: centsField,
+        retry_after_seconds: { type: "integer" },
       },
       additionalProperties: false,
     },
@@ -114,7 +115,7 @@ export const BAD_REQUEST =
 
 export const LIST_BAD_REQUEST = `${BAD_REQUEST} As listagens também recusam qualquer parâmetro de query desconhecido: só \`archived\` é aceito.`;
 
-type ErrorStatus = 400 | 404 | 409 | 422;
+type ErrorStatus = 400 | 401 | 403 | 404 | 409 | 422 | 429;
 
 const INTERNAL_ERROR =
   "`INTERNAL_ERROR`: erro inesperado no servidor. Mostre uma mensagem genérica e ofereça tentar de novo.";
@@ -124,13 +125,26 @@ const BODY_ERRORS = {
   415: "`UNSUPPORTED_MEDIA_TYPE`: `Content-Type` não suportado; envie `application/json`.",
 };
 
+export const bearer = [{ bearerAuth: [] }];
+
+const UNAUTHENTICATED =
+  "`UNAUTHENTICATED`: token ausente, inválido ou expirado. Renove com `/auth/refresh` ou faça login de novo.";
+
+const FORBIDDEN =
+  "`FORBIDDEN`: o papel do usuário não tem a permissão que a rota exige.";
+
 export function errors(
   descriptions: Partial<Record<ErrorStatus, string>>,
-  { body = false, input = true }: { body?: boolean; input?: boolean } = {},
+  {
+    body = false,
+    input = true,
+    auth = true,
+  }: { body?: boolean; input?: boolean; auth?: boolean } = {},
 ) {
   return Object.fromEntries(
     Object.entries({
       ...(input ? { 400: BAD_REQUEST } : {}),
+      ...(auth ? { 401: UNAUTHENTICATED, 403: FORBIDDEN } : {}),
       ...descriptions,
       ...(body ? BODY_ERRORS : {}),
       500: INTERNAL_ERROR,

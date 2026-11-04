@@ -1,5 +1,6 @@
 import {
   archivedQuery,
+  bearer,
   centsField,
   errors,
   LIST_BAD_REQUEST,
@@ -80,6 +81,7 @@ const INVALID_REFERENCE =
 
 export const listItemsSchema = {
   tags,
+  security: bearer,
   summary: "Listar itens",
   description:
     "Lista os itens por nome, com ingredientes e adicionais. Com `?archived=true`, lista só os arquivados.",
@@ -92,6 +94,7 @@ export const listItemsSchema = {
 
 export const createItemSchema = {
   tags,
+  security: bearer,
   summary: "Criar item",
   description:
     "Cria um item numa categoria ativa, com ingredientes removíveis e adicionais aceitos opcionais.",
@@ -118,6 +121,7 @@ export const createItemSchema = {
 
 export const updateItemSchema = {
   tags,
+  security: bearer,
   summary: "Alterar item",
   description:
     "Altera o item. Campos omitidos ficam como estão, mas `ingredients` e `addon_ids`, quando enviados, substituem a lista inteira.",
@@ -138,6 +142,7 @@ export const updateItemSchema = {
 
 export const archiveItemSchema = {
   tags,
+  security: bearer,
   summary: "Arquivar item",
   description:
     "Arquiva o item. Recusado enquanto ele for componente de algum combo ativo.",
@@ -153,6 +158,7 @@ export const archiveItemSchema = {
 
 export const restoreItemSchema = {
   tags,
+  security: bearer,
   summary: "Restaurar item",
   description:
     "Traz de volta um item arquivado, com o mesmo id, ingredientes e adicionais. Exige a categoria ativa.",
