@@ -97,8 +97,14 @@ export async function categoryRoutes(app: FastifyInstance) {
     "/categories/:id",
     { schema: { params: idParams } },
     async (request, reply) => {
-      if (!(await deleteCategory(app.db, request.params.id))) {
+      const result = await deleteCategory(app.db, request.params.id);
+
+      if (!result.deleted && result.reason === "not_found") {
         throw notFound("category not found");
+      }
+
+      if (!result.deleted) {
+        throw conflict(`category "${result.name}" still has items`);
       }
 
       return reply.code(204).send();

@@ -6,6 +6,7 @@ import type { Pool } from "pg";
 import { createPool } from "./infra/db/pool.ts";
 import { categoryRoutes } from "./routes/categories.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { itemRoutes } from "./routes/items.ts";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -53,6 +54,7 @@ export function buildApp(
 
   app.register(healthRoutes);
   app.register(categoryRoutes);
+  app.register(itemRoutes);
 
   return app;
 }

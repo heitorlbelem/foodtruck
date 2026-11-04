@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 
+import { isForeignKeyViolation } from "../infra/db/errors.ts";
+
 export type Category = { id: string; name: string; sort_order: number };
 
 const COLUMNS = "id, name, sort_order";
@@ -51,10 +53,36 @@ export async function updateCategory(
   return rows[0];
 }
 
-export async function deleteCategory(db: Pool, id: string): Promise<boolean> {
-  const { rowCount } = await db.query("DELETE FROM categories WHERE id = $1", [
-    id,
-  ]);
+export type DeleteCategoryResult =
+  | { deleted: true }
+  | { deleted: false; reason: "not_found" }
+  | { deleted: false; reason: "has_items"; name: string };
 
-  return rowCount === 1;
+// A category that holds items — archived ones included, since they stay in
+// the table — is refused by the items foreign key.
+export async function deleteCategory(
+  db: Pool,
+  id: string,
+): Promise<DeleteCategoryResult> {
+  try {
+    const { rowCount } = await db.query(
+      "DELETE FROM categories WHERE id = $1",
+      [id],
+    );
+
+    return rowCount === 1
+      ? { deleted: true }
+      : { deleted: false, reason: "not_found" };
+  } catch (error) {
+    if (!isForeignKeyViolation(error)) {
+      throw error;
+    }
+
+    const { rows } = await db.query<{ name: string }>(
+      "SELECT name FROM categories WHERE id = $1",
+      [id],
+    );
+
+    return { deleted: false, reason: "has_items", name: rows[0]!.name };
+  }
 }

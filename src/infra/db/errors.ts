@@ -12,3 +12,7 @@ function hasCode(error: unknown, code: string): boolean {
 export function isUniqueViolation(error: unknown): boolean {
   return hasCode(error, "23505");
 }
+
+export function isForeignKeyViolation(error: unknown): boolean {
+  return hasCode(error, "23503");
+}
