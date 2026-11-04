@@ -2,14 +2,37 @@ import {
   archivedQuery,
   centsField,
   errors,
+  LIST_BAD_REQUEST,
   idField,
   idParams,
   MAX_QUANTITY,
   priceCents,
   uuid,
 } from "../../shared/schemas.ts";
+import { itemExample } from "../items/items.schemas.ts";
 
 const tags = ["combos"];
+
+export const comboExample = {
+  id: "6d8f0a2c-4e6a-4b8c-9d1f-3a5c7e9b1d3f",
+  name: "Combo X-Burguer",
+  price_cents: 3000,
+  suggested_price_cents: 3200,
+  components: [
+    {
+      id: "2c4e6a8b-0d2f-4a6c-8e1b-3d5f7a9c1e3b",
+      item_id: itemExample.id,
+      quantity: 1,
+      swap_category_id: null,
+    },
+    {
+      id: "8b0d2f4a-6c8e-4b1d-a3f5-7c9e1b3d5f7a",
+      item_id: "7e9c1a3b-5d7f-4a2c-9e4b-6d8f0a2c4e6a",
+      quantity: 1,
+      swap_category_id: "3c5e7a9b-1d3f-4b5a-8c7e-9f1b3d5a7c9e",
+    },
+  ],
+};
 
 export const comboSchema = {
   $id: "Combo",
@@ -51,6 +74,7 @@ export const comboSchema = {
     "suggested_price_cents",
     "components",
   ],
+  examples: [comboExample],
 };
 
 const bodyProperties = {
@@ -92,7 +116,7 @@ export const listCombosSchema = {
   querystring: archivedQuery,
   response: {
     200: { description: "Combos.", type: "array", items: { $ref: "Combo#" } },
-    ...errors({}),
+    ...errors({ 400: LIST_BAD_REQUEST }),
   },
 };
 

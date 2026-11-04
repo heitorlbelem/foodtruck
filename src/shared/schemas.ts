@@ -86,10 +86,33 @@ export const errorSchema = {
   },
   required: ["status_code", "error", "code", "message"],
   additionalProperties: false,
+  examples: [
+    {
+      status_code: 409,
+      error: "Conflict",
+      code: "IN_USE",
+      message: 'category "Lanches" is still used by items: X-Burguer',
+      details: {
+        items: [
+          { id: "1f3a5c7e-9b2d-4f6a-8c0e-2a4c6e8b0d1f", name: "X-Burguer" },
+        ],
+      },
+    },
+    {
+      status_code: 409,
+      error: "Conflict",
+      code: "NAME_TAKEN_ARCHIVED",
+      message:
+        'an item named "X-Burguer" already exists, archived; restore it with POST /api/v1/items/1f3a5c7e-9b2d-4f6a-8c0e-2a4c6e8b0d1f/restore',
+      details: { archived_id: "1f3a5c7e-9b2d-4f6a-8c0e-2a4c6e8b0d1f" },
+    },
+  ],
 };
 
 export const BAD_REQUEST =
   "`VALIDATION_FAILED`: corpo, query ou id fora do schema. `MALFORMED_REQUEST`: JSON inválido, ou corpo vazio enviado com `Content-Type: application/json`.";
+
+export const LIST_BAD_REQUEST = `${BAD_REQUEST} As listagens também recusam qualquer parâmetro de query desconhecido: só \`archived\` é aceito.`;
 
 type ErrorStatus = 400 | 404 | 409 | 422;
 
@@ -103,11 +126,11 @@ const BODY_ERRORS = {
 
 export function errors(
   descriptions: Partial<Record<ErrorStatus, string>>,
-  { body = false }: { body?: boolean } = {},
+  { body = false, input = true }: { body?: boolean; input?: boolean } = {},
 ) {
   return Object.fromEntries(
     Object.entries({
-      400: BAD_REQUEST,
+      ...(input ? { 400: BAD_REQUEST } : {}),
       ...descriptions,
       ...(body ? BODY_ERRORS : {}),
       500: INTERNAL_ERROR,

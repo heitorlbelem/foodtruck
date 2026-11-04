@@ -2,13 +2,25 @@ import {
   archivedQuery,
   centsField,
   errors,
+  LIST_BAD_REQUEST,
   idField,
   idParams,
   priceCents,
   uuid,
 } from "../../shared/schemas.ts";
+import { addonExample } from "../addons/addons.schemas.ts";
+import { categoryExample } from "../categories/categories.schemas.ts";
 
 const tags = ["itens"];
+
+export const itemExample = {
+  id: "1f3a5c7e-9b2d-4f6a-8c0e-2a4c6e8b0d1f",
+  category_id: categoryExample.id,
+  name: "X-Burguer",
+  price_cents: 2500,
+  ingredients: ["alface", "tomate", "cebola"],
+  addons: [addonExample],
+};
 
 export const itemSchema = {
   $id: "Item",
@@ -38,6 +50,7 @@ export const itemSchema = {
     "ingredients",
     "addons",
   ],
+  examples: [itemExample],
 };
 
 const bodyProperties = {
@@ -73,7 +86,7 @@ export const listItemsSchema = {
   querystring: archivedQuery,
   response: {
     200: { description: "Itens.", type: "array", items: { $ref: "Item#" } },
-    ...errors({}),
+    ...errors({ 400: LIST_BAD_REQUEST }),
   },
 };
 

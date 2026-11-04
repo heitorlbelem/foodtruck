@@ -2,12 +2,19 @@ import {
   archivedQuery,
   centsField,
   errors,
+  LIST_BAD_REQUEST,
   idField,
   idParams,
   priceCents,
 } from "../../shared/schemas.ts";
 
 const tags = ["adicionais"];
+
+export const addonExample = {
+  id: "9a1e5c3b-7d2f-4e8a-b6c0-1d3f5a7e9c2b",
+  name: "Bacon",
+  price_cents: 500,
+};
 
 export const addonSchema = {
   $id: "Addon",
@@ -18,6 +25,7 @@ export const addonSchema = {
     price_cents: centsField,
   },
   required: ["id", "name", "price_cents"],
+  examples: [addonExample],
 };
 
 const bodyProperties = {
@@ -42,7 +50,7 @@ export const listAddonsSchema = {
       type: "array",
       items: { $ref: "Addon#" },
     },
-    ...errors({}),
+    ...errors({ 400: LIST_BAD_REQUEST }),
   },
 };
 

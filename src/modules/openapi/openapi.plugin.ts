@@ -7,6 +7,7 @@ import { addonSchema } from "../addons/addons.schemas.ts";
 import { categorySchema } from "../categories/categories.schemas.ts";
 import { comboSchema } from "../combos/combos.schemas.ts";
 import { itemSchema } from "../items/items.schemas.ts";
+import { menuCategorySchema, menuSchema } from "../menu/menu.schemas.ts";
 import { GUIDE, TAGS } from "./guide.ts";
 
 export function registerOpenapi(app: FastifyInstance) {
@@ -16,6 +17,8 @@ export function registerOpenapi(app: FastifyInstance) {
     addonSchema,
     itemSchema,
     comboSchema,
+    menuCategorySchema,
+    menuSchema,
   ]) {
     app.addSchema(schema);
   }

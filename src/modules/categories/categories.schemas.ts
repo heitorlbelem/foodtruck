@@ -1,12 +1,19 @@
 import {
   archivedQuery,
   errors,
+  LIST_BAD_REQUEST,
   idField,
   idParams,
   sortOrder,
 } from "../../shared/schemas.ts";
 
 const tags = ["categorias"];
+
+export const categoryExample = {
+  id: "4b7c2a8e-0d1f-4c3a-9e6b-2f5d8a1c7e90",
+  name: "Lanches",
+  sort_order: 1,
+};
 
 export const categorySchema = {
   $id: "Category",
@@ -20,6 +27,7 @@ export const categorySchema = {
     },
   },
   required: ["id", "name", "sort_order"],
+  examples: [categoryExample],
 };
 
 const bodyProperties = {
@@ -47,7 +55,7 @@ export const listCategoriesSchema = {
       type: "array",
       items: { $ref: "Category#" },
     },
-    ...errors({}),
+    ...errors({ 400: LIST_BAD_REQUEST }),
   },
 };
 

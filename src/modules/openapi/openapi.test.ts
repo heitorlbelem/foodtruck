@@ -76,7 +76,11 @@ describe("openapi document", () => {
         TAGS.map((tag) => tag.name),
         label,
       ).toContain(op.tags![0]);
-      expect(errorEnum(op.responses["400"]), label).toEqual([...ERROR_CODES]);
+      if (url === "/api/v1/menu") {
+        expect(op.responses["400"], label).toBeUndefined();
+      } else {
+        expect(errorEnum(op.responses["400"]), label).toEqual([...ERROR_CODES]);
+      }
 
       expect(errorEnum(op.responses["500"]), label).toEqual([...ERROR_CODES]);
 
@@ -165,6 +169,56 @@ describe("openapi document", () => {
       "code",
       "message",
     ]);
+  });
+
+  it("names the menu response", () => {
+    const schemas = doc.components.schemas;
+
+    expect(
+      operation("get", "/api/v1/menu").responses["200"].content[
+        "application/json"
+      ].schema,
+    ).toEqual({ $ref: "#/components/schemas/Menu" });
+    expect(schemas.Menu.properties.categories.items).toEqual({
+      $ref: "#/components/schemas/MenuCategory",
+    });
+    expect(schemas.MenuCategory.required).toEqual(
+      expect.arrayContaining(["id", "name", "sort_order", "items"]),
+    );
+  });
+
+  it("gives every named schema an example", () => {
+    const schemas = doc.components.schemas;
+
+    for (const name of [
+      "Error",
+      "Category",
+      "Addon",
+      "Item",
+      "Combo",
+      "MenuCategory",
+      "Menu",
+    ]) {
+      expect(schemas[name].examples?.length, name).toBeGreaterThan(0);
+    }
+
+    expect(schemas.Error.examples).toContainEqual(
+      expect.objectContaining({
+        code: "IN_USE",
+        details: expect.objectContaining({ items: expect.any(Array) }),
+      }),
+    );
+  });
+
+  it("warns that listings refuse unknown query parameters", () => {
+    for (const resource of ["categories", "items", "addons", "combos"]) {
+      expect(
+        operation("get", `/api/v1/${resource}`).responses["400"].description,
+        resource,
+      ).toContain("parâmetro de query desconhecido");
+    }
+
+    expect(doc.info.description).toContain("parâmetro de query desconhecido");
   });
 
   it("documents the archived filter on every listing", () => {

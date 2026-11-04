@@ -41,6 +41,7 @@ Cada estado vazio deve apontar o próximo passo ("Nenhuma categoria ainda. Crie 
 - **`PATCH` é parcial**: campos omitidos ficam como estão. Mas `ingredients`, `addon_ids` e `components`, quando enviados, **substituem a lista inteira**. Para tirar um adicional, envie a lista sem ele.
 - **Preço do combo**: se `price_cents` for omitido na criação, o preço vira a soma de quantidade × preço de cada componente. `suggested_price_cents` sempre traz essa soma com os preços **atuais**. Mostre os dois lado a lado para a dona perceber quando o preço do combo ficou defasado. Um `PATCH` não recalcula o preço.
 - **Ids** são uuids gerados pela API.
+- **As listagens aceitam só `?archived`.** Qualquer parâmetro de query desconhecido (por exemplo, um `?_=123` para furar cache) é recusado com `VALIDATION_FAILED`. As demais rotas ignoram a query.
 - `DELETE` e `POST /:id/restore` não têm corpo: **não envie `Content-Type: application/json` neles**. Um corpo vazio com esse header é recusado com `MALFORMED_REQUEST`.
 
 ## Erros
@@ -51,7 +52,7 @@ Toda resposta de erro tem o formato `{ status_code, error, code, message, detail
 | -------------------------- | ------ | -------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `VALIDATION_FAILED`        | 400    | o corpo, a query ou o id não passam no schema                                    | —                                            | valide antes de enviar; se acontecer, é bug do app                                          |
 | `MALFORMED_REQUEST`        | 400    | JSON inválido, ou corpo vazio com `Content-Type` JSON                            | —                                            | bug do app                                                                                  |
-| `UNSUPPORTED_MEDIA_TYPE`   | 415    | `Content-Type` não suportado (envie `application/json`)                          | —                                            | bug do app                                                                                  |
+| `UNSUPPORTED_MEDIA_TYPE`   | 415    | `Content-Type` diferente de `application/json` (inclusive `text/plain`)          | —                                            | bug do app                                                                                  |
 | `PAYLOAD_TOO_LARGE`        | 413    | corpo grande demais                                                              | —                                            | bug do app                                                                                  |
 | `NOT_FOUND`                | 404    | rota inexistente                                                                 | —                                            | bug do app                                                                                  |
 | `CATEGORY_NOT_FOUND`       | 404    | a categoria não existe ou está arquivada                                         | —                                            | "Essa categoria não existe mais." e recarregue                                              |
