@@ -27,6 +27,7 @@
   "scripts": {
     "predev": "npm run services:up",
     "dev": "node --env-file=.env.development --watch src/server.ts",
+    "users": "node --env-file-if-exists=.env.development src/cli/users.ts",
     "start": "node --env-file=.env.development src/server.ts",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run services:up",
