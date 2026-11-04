@@ -19,8 +19,6 @@ export function buildApp(
 ) {
   const app = Fastify({
     trustProxy: true,
-    // Fastify's default strips unknown body fields silently; refusing them
-    // with 400 tells the client its payload was not what it thought.
     ajv: { customOptions: { removeAdditional: false } },
     ...opts,
   });

@@ -1,5 +1,3 @@
-// Errors carrying a statusCode are formatted by the error handler in app.ts
-// as { status_code, error, message }.
 function httpError(statusCode: number, message: string): Error {
   return Object.assign(new Error(message), { statusCode });
 }
