@@ -2,9 +2,6 @@ import type { Pool } from "pg";
 
 const KEPT_TABLES = new Set(["pgmigrations", "foodtrucks"]);
 
-// Empties every table a test can write to, keeping the migration history and
-// the seeded foodtruck. Generic on purpose: new tables are picked up without
-// editing this file.
 export async function resetCatalog(db: Pool): Promise<void> {
   const { rows } = await db.query<{ table_name: string }>(
     `SELECT table_name
