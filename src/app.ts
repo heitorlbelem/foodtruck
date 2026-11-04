@@ -4,6 +4,7 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
 import type { Pool } from "pg";
 
 import { createPool } from "./infra/db/pool.ts";
+import { categoryRoutes } from "./routes/categories.ts";
 import { healthRoutes } from "./routes/health.ts";
 
 declare module "fastify" {
@@ -16,7 +17,13 @@ export function buildApp(
   opts: FastifyServerOptions = {},
   db: Pool = createPool(),
 ) {
-  const app = Fastify({ trustProxy: true, ...opts });
+  const app = Fastify({
+    trustProxy: true,
+    // Fastify's default strips unknown body fields silently; refusing them
+    // with 400 tells the client its payload was not what it thought.
+    ajv: { customOptions: { removeAdditional: false } },
+    ...opts,
+  });
 
   app.decorate("db", db);
   app.db.on("error", (error) =>
@@ -45,6 +52,7 @@ export function buildApp(
   });
 
   app.register(healthRoutes);
+  app.register(categoryRoutes);
 
   return app;
 }
