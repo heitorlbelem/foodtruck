@@ -23,7 +23,7 @@ export function buildApp(
 ) {
   const app = Fastify({
     trustProxy: true,
-    ajv: { customOptions: { removeAdditional: false } },
+    ajv: { customOptions: { removeAdditional: false, coerceTypes: false } },
     ...opts,
   });
 

@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
 import type { Addon } from "./addons.ts";
+import type { RestoreResult } from "./archived.ts";
 
 export type Item = {
   id: string;
@@ -28,6 +29,15 @@ export class UnavailableAddonsError extends Error {
   constructor(addonIds: string[]) {
     super(`addons not available: ${addonIds.join(", ")}`);
     this.addonIds = addonIds;
+  }
+}
+
+export class UnavailableCategoryError extends Error {
+  readonly categoryId: string;
+
+  constructor(categoryId: string) {
+    super(`category not available: ${categoryId}`);
+    this.categoryId = categoryId;
   }
 }
 
@@ -82,6 +92,8 @@ export async function createItem(
     Partial<Pick<ItemFields, "ingredients" | "addon_ids">>,
 ): Promise<Item> {
   return withTransaction(db, async (tx) => {
+    await checkLiveCategory(tx, input.category_id, foodtruckId);
+
     const { rows } = await tx.query<ItemRow>(
       `INSERT INTO items (foodtruck_id, category_id, name, price_cents)
        VALUES ($1, $2, $3, $4)
@@ -102,14 +114,14 @@ export async function updateItem(
   input: Partial<ItemFields>,
 ): Promise<Item | undefined> {
   return withTransaction(db, async (tx) => {
-    const { rows } = await tx.query<ItemRow>(
+    const { rows } = await tx.query<ItemRow & { foodtruck_id: string }>(
       `UPDATE items
           SET category_id = coalesce($2, category_id),
               name = coalesce($3, name),
               price_cents = coalesce($4, price_cents),
               updated_at = now()
         WHERE id = $1 AND archived_at IS NULL
-        RETURNING ${COLUMNS}`,
+        RETURNING ${COLUMNS}, foodtruck_id`,
       [
         id,
         input.category_id ?? null,
@@ -117,10 +129,15 @@ export async function updateItem(
         input.price_cents ?? null,
       ],
     );
-    const item = rows[0];
 
-    if (!item) {
+    if (!rows[0]) {
       return undefined;
+    }
+
+    const { foodtruck_id, ...item } = rows[0];
+
+    if (input.category_id) {
+      await checkLiveCategory(tx, input.category_id, foodtruck_id);
     }
 
     await replaceIngredients(tx, item.id, input.ingredients);
@@ -170,6 +187,69 @@ export async function archiveItem(
 
     return { archived: true, blocked_by: [] };
   });
+}
+
+export async function restoreItem(
+  db: Pool,
+  id: string,
+): Promise<RestoreResult<Item>> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query<{ archived: boolean; category_id: string }>(
+      `SELECT archived_at IS NOT NULL AS archived, category_id FROM items
+        WHERE id = $1
+          FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows[0]) {
+      return { status: "not_found" };
+    }
+
+    if (!rows[0].archived) {
+      return { status: "not_archived" };
+    }
+
+    const category = await tx.query<{ name: string; archived: boolean }>(
+      `SELECT name, archived_at IS NOT NULL AS archived FROM categories
+        WHERE id = $1
+          FOR SHARE`,
+      [rows[0].category_id],
+    );
+
+    if (category.rows[0]!.archived) {
+      return { status: "blocked", blocked_by: [category.rows[0]!.name] };
+    }
+
+    const restored = await tx.query<ItemRow>(
+      `UPDATE items
+          SET archived_at = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING ${COLUMNS}`,
+      [id],
+    );
+
+    return {
+      status: "restored",
+      row: await readChildren(tx, restored.rows[0]!),
+    };
+  });
+}
+
+async function checkLiveCategory(
+  tx: PoolClient,
+  categoryId: string,
+  foodtruckId: string,
+): Promise<void> {
+  const { rows } = await tx.query(
+    `SELECT 1 FROM categories
+      WHERE id = $1 AND foodtruck_id = $2 AND archived_at IS NULL
+        FOR SHARE`,
+    [categoryId, foodtruckId],
+  );
+
+  if (rows.length === 0) {
+    throw new UnavailableCategoryError(categoryId);
+  }
 }
 
 async function replaceIngredients(

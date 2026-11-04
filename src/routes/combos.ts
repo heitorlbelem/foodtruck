@@ -5,13 +5,17 @@ import {
   type ComboInput,
   createCombo,
   listCombos,
+  SuggestedPriceTooHighError,
   UnavailableItemsError,
   UnknownCategoriesError,
   updateCombo,
+  restoreCombo,
 } from "../catalog/combos.ts";
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
-import { conflict, notFound, unprocessable } from "./http-errors.ts";
+import { nameTaken, restoreRoute } from "./archiving.ts";
+import { notFound, unprocessable } from "./http-errors.ts";
+import { idParams, MAX_QUANTITY, priceCents, uuid } from "./schemas.ts";
 
 type IdParams = { id: string };
 
@@ -39,27 +43,22 @@ export const comboSchema = {
 
 const bodyProperties = {
   name: { type: "string", minLength: 1 },
-  price_cents: { type: "integer", minimum: 0 },
+  price_cents: priceCents,
   components: {
     type: "array",
     minItems: 1,
+    maxItems: 50,
     items: {
       type: "object",
       properties: {
-        item_id: { type: "string", format: "uuid" },
-        quantity: { type: "integer", minimum: 1 },
-        swap_category_id: { type: "string", format: "uuid" },
+        item_id: uuid,
+        quantity: { type: "integer", minimum: 1, maximum: MAX_QUANTITY },
+        swap_category_id: uuid,
       },
       required: ["item_id", "quantity"],
       additionalProperties: false,
     },
   },
-};
-
-const idParams = {
-  type: "object",
-  properties: { id: { type: "string", format: "uuid" } },
-  required: ["id"],
 };
 
 export async function comboRoutes(app: FastifyInstance) {
@@ -85,7 +84,7 @@ export async function comboRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const foodtruckId = await currentFoodtruckId(app.db);
       const combo = await createCombo(app.db, foodtruckId, request.body).catch(
-        rethrowWriteError(request.body),
+        rethrowWriteError(app, request.body),
       );
 
       return reply.code(201).send(combo);
@@ -110,7 +109,7 @@ export async function comboRoutes(app: FastifyInstance) {
         app.db,
         request.params.id,
         request.body,
-      ).catch(rethrowWriteError(request.body));
+      ).catch(rethrowWriteError(app, request.body));
 
       if (!combo) {
         throw notFound("combo not found");
@@ -131,10 +130,17 @@ export async function comboRoutes(app: FastifyInstance) {
       return reply.code(204).send();
     },
   );
+
+  restoreRoute(app, {
+    table: "combos",
+    noun: "combo",
+    schema: comboSchema,
+    restore: restoreCombo,
+  });
 }
 
-function rethrowWriteError(body: Partial<ComboInput>) {
-  return (error: unknown): never => {
+function rethrowWriteError(app: FastifyInstance, body: Partial<ComboInput>) {
+  return async (error: unknown): Promise<never> => {
     if (error instanceof UnavailableItemsError) {
       throw unprocessable(
         `items ${error.itemIds.join(", ")} do not exist or are archived`,
@@ -147,8 +153,19 @@ function rethrowWriteError(body: Partial<ComboInput>) {
       );
     }
 
+    if (error instanceof SuggestedPriceTooHighError) {
+      throw unprocessable(
+        `the suggested price ${error.suggestedPriceCents} is above the ceiling; set price_cents by hand`,
+      );
+    }
+
     if (isUniqueViolation(error)) {
-      throw conflict(`a combo named "${body.name}" already exists`);
+      throw await nameTaken(
+        app,
+        "combos",
+        `a combo named "${body.name}" already exists`,
+        body.name,
+      );
     }
 
     throw error;

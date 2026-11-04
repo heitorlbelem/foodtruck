@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
+import type { RestoreResult } from "./archived.ts";
 import type { ArchiveResult } from "./items.ts";
 
 export type Addon = { id: string; name: string; price_cents: number };
@@ -93,5 +94,37 @@ export async function archiveAddon(
     );
 
     return { archived: true, blocked_by: [] };
+  });
+}
+
+export async function restoreAddon(
+  db: Pool,
+  id: string,
+): Promise<RestoreResult<Addon>> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query<{ archived: boolean }>(
+      `SELECT archived_at IS NOT NULL AS archived FROM addons
+        WHERE id = $1
+          FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows[0]) {
+      return { status: "not_found" };
+    }
+
+    if (!rows[0].archived) {
+      return { status: "not_archived" };
+    }
+
+    const restored = await tx.query<Addon>(
+      `UPDATE addons
+          SET archived_at = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING ${COLUMNS}`,
+      [id],
+    );
+
+    return { status: "restored", row: restored.rows[0]! };
   });
 }

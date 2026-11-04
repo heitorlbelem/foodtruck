@@ -240,7 +240,7 @@ describe("items", () => {
   });
 });
 
-describe("deleting a category that holds items", () => {
+describe("archiving a category that holds items", () => {
   it("refuses with 409 naming the category", async () => {
     const category = await createCategory("Lanches");
     await createItem({
@@ -253,9 +253,10 @@ describe("deleting a category that holds items", () => {
 
     expect(response.statusCode).toBe(409);
     expect(response.json().message).toContain("Lanches");
+    expect(response.json().message).toContain("Hambúrguer");
   });
 
-  it("still refuses when its only items are archived", async () => {
+  it("archives it once its only items are archived", async () => {
     const category = await createCategory("Lanches");
     const item = await createItem({
       category_id: category.id,
@@ -266,7 +267,7 @@ describe("deleting a category that holds items", () => {
 
     const response = await inject("DELETE", `/categories/${category.id}`);
 
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(204);
   });
 });
 
