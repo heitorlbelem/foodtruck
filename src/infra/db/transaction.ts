@@ -19,3 +19,14 @@ export async function withTransaction<T>(
     tx.release();
   }
 }
+
+export async function withSnapshot<T>(
+  db: Pool,
+  run: (tx: PoolClient) => Promise<T>,
+): Promise<T> {
+  return withTransaction(db, async (tx) => {
+    await tx.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+
+    return run(tx);
+  });
+}
