@@ -5,12 +5,14 @@ import {
   archiveItem,
   createItem,
   listItems,
+  UnavailableAddonsError,
   updateItem,
 } from "../catalog/items.ts";
 import {
   isForeignKeyViolation,
   isUniqueViolation,
 } from "../infra/db/errors.ts";
+import { addonSchema } from "./addons.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
 
 type ItemBody = {
@@ -18,6 +20,7 @@ type ItemBody = {
   name: string;
   price_cents: number;
   ingredients: string[];
+  addon_ids: string[];
 };
 type IdParams = { id: string };
 
@@ -29,6 +32,7 @@ const itemSchema = {
     name: { type: "string" },
     price_cents: { type: "integer" },
     ingredients: { type: "array", items: { type: "string" } },
+    addons: { type: "array", items: addonSchema },
   },
 };
 
@@ -39,6 +43,11 @@ const bodyProperties = {
   ingredients: {
     type: "array",
     items: { type: "string", minLength: 1 },
+    uniqueItems: true,
+  },
+  addon_ids: {
+    type: "array",
+    items: { type: "string", format: "uuid" },
     uniqueItems: true,
   },
 };
@@ -122,6 +131,12 @@ export async function itemRoutes(app: FastifyInstance) {
 
 function rethrowWriteError(body: Partial<ItemBody>) {
   return (error: unknown): never => {
+    if (error instanceof UnavailableAddonsError) {
+      throw unprocessable(
+        `addons ${error.addonIds.join(", ")} do not exist or are archived`,
+      );
+    }
+
     if (isUniqueViolation(error)) {
       throw conflict(`an item named "${body.name}" already exists`);
     }

@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
+import type { Addon } from "./addons.ts";
 
 export type Item = {
   id: string;
@@ -8,6 +9,7 @@ export type Item = {
   name: string;
   price_cents: number;
   ingredients: string[];
+  addons: Addon[];
 };
 
 type ItemFields = {
@@ -15,11 +17,28 @@ type ItemFields = {
   name: string;
   price_cents: number;
   ingredients: string[];
+  addon_ids: string[];
 };
 
-type ItemRow = Omit<Item, "ingredients">;
+type ItemRow = Omit<Item, "ingredients" | "addons">;
+
+export class UnavailableAddonsError extends Error {
+  readonly addonIds: string[];
+
+  constructor(addonIds: string[]) {
+    super(`addons not available: ${addonIds.join(", ")}`);
+    this.addonIds = addonIds;
+  }
+}
 
 const COLUMNS = "id, category_id, name, price_cents";
+
+const LIVE_ADDONS_OF_ITEM = `
+  SELECT addon.id, addon.name, addon.price_cents
+    FROM item_addons link
+    JOIN addons addon ON addon.id = link.addon_id
+   WHERE link.item_id = $1 AND addon.archived_at IS NULL
+   ORDER BY addon.name`;
 
 export async function listItems(
   db: Pool,
@@ -32,7 +51,21 @@ export async function listItems(
                  FROM item_ingredients ingredient
                 WHERE ingredient.item_id = items.id),
               '{}'
-            ) AS ingredients
+            ) AS ingredients,
+            coalesce(
+              (SELECT json_agg(
+                        json_build_object(
+                          'id', addon.id,
+                          'name', addon.name,
+                          'price_cents', addon.price_cents
+                        )
+                        ORDER BY addon.name
+                      )
+                 FROM item_addons link
+                 JOIN addons addon ON addon.id = link.addon_id
+                WHERE link.item_id = items.id AND addon.archived_at IS NULL),
+              '[]'
+            ) AS addons
        FROM items
       WHERE foodtruck_id = $1 AND archived_at IS NULL
       ORDER BY name`,
@@ -45,7 +78,8 @@ export async function listItems(
 export async function createItem(
   db: Pool,
   foodtruckId: string,
-  input: Omit<ItemFields, "ingredients"> & { ingredients?: string[] },
+  input: Omit<ItemFields, "ingredients" | "addon_ids"> &
+    Partial<Pick<ItemFields, "ingredients" | "addon_ids">>,
 ): Promise<Item> {
   return withTransaction(db, async (tx) => {
     const { rows } = await tx.query<ItemRow>(
@@ -56,8 +90,9 @@ export async function createItem(
     );
     const item = rows[0]!;
     await replaceIngredients(tx, item.id, input.ingredients);
+    await replaceAddons(tx, item.id, input.addon_ids);
 
-    return { ...item, ingredients: await readIngredients(tx, item.id) };
+    return readChildren(tx, item);
   });
 }
 
@@ -89,8 +124,9 @@ export async function updateItem(
     }
 
     await replaceIngredients(tx, item.id, input.ingredients);
+    await replaceAddons(tx, item.id, input.addon_ids);
 
-    return { ...item, ingredients: await readIngredients(tx, item.id) };
+    return readChildren(tx, item);
   });
 }
 
@@ -126,6 +162,47 @@ async function replaceIngredients(
        FROM unnest($2::text[]) WITH ORDINALITY AS listed(name, ordinality)`,
     [itemId, ingredients],
   );
+}
+
+async function replaceAddons(
+  tx: PoolClient,
+  itemId: string,
+  addonIds: string[] | undefined,
+): Promise<void> {
+  if (!addonIds) {
+    return;
+  }
+
+  const { rows } = await tx.query<{ id: string }>(
+    `SELECT id FROM addons
+      WHERE id = ANY($2::uuid[])
+        AND archived_at IS NULL
+        AND foodtruck_id = (SELECT foodtruck_id FROM items WHERE id = $1)
+        FOR SHARE`,
+    [itemId, addonIds],
+  );
+
+  if (rows.length !== addonIds.length) {
+    const live = new Set(rows.map((row) => row.id));
+    throw new UnavailableAddonsError(addonIds.filter((id) => !live.has(id)));
+  }
+
+  await tx.query("DELETE FROM item_addons WHERE item_id = $1", [itemId]);
+  await tx.query(
+    `INSERT INTO item_addons (item_id, addon_id)
+     SELECT $1, unnest($2::uuid[])`,
+    [itemId, addonIds],
+  );
+}
+
+async function readChildren(tx: PoolClient, item: ItemRow): Promise<Item> {
+  const addons = await tx.query<Addon>(LIVE_ADDONS_OF_ITEM, [item.id]);
+
+  return {
+    ...item,
+    ingredients: await readIngredients(tx, item.id),
+    addons: addons.rows,
+  };
 }
 
 async function readIngredients(
