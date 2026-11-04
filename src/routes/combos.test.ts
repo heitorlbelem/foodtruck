@@ -418,7 +418,7 @@ describe("combos", () => {
   });
 });
 
-describe("deleting a category that is a swap category", () => {
+describe("archiving a category that is a swap category", () => {
   it("refuses with 409 naming the category and the combo", async () => {
     const desserts = await post("/categories", { name: "Sobremesas" });
     await post("/combos", {
@@ -436,7 +436,7 @@ describe("deleting a category that is a swap category", () => {
     expect(response.json().message).not.toContain("items");
   });
 
-  it("still refuses when the only such combo is archived", async () => {
+  it("archives it once the only such combo is archived", async () => {
     const desserts = await post("/categories", { name: "Sobremesas" });
     const combo = await post("/combos", {
       name: "Combo Clássico",
@@ -448,6 +448,6 @@ describe("deleting a category that is a swap category", () => {
 
     const response = await inject("DELETE", `/categories/${desserts.id}`);
 
-    expect(response.statusCode).toBe(409);
+    expect(response.statusCode).toBe(204);
   });
 });

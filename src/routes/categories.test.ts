@@ -121,7 +121,7 @@ describe("categories", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("deletes a category", async () => {
+  it("archives a category instead of deleting it", async () => {
     const created = (
       await inject("POST", "/categories", { name: "Bebidas" })
     ).json();
@@ -130,6 +130,11 @@ describe("categories", () => {
 
     expect(response.statusCode).toBe(204);
     expect((await inject("GET", "/categories")).json()).toEqual([]);
+    const { rows } = await app.db.query(
+      "SELECT archived_at FROM categories WHERE id = $1",
+      [created.id],
+    );
+    expect(rows[0].archived_at).not.toBeNull();
   });
 
   it("answers 404 when deleting a category that does not exist", async () => {

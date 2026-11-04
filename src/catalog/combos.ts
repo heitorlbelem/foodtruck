@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
 import { withTransaction } from "../infra/db/transaction.ts";
+import type { RestoreResult } from "./archived.ts";
 import { MAX_PRICE_CENTS } from "./money.ts";
 
 export type ComboComponent = {
@@ -191,6 +192,60 @@ export async function archiveCombo(db: Pool, id: string): Promise<boolean> {
   return rowCount === 1;
 }
 
+export async function restoreCombo(
+  db: Pool,
+  id: string,
+): Promise<RestoreResult<Combo>> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query<{ archived: boolean }>(
+      `SELECT archived_at IS NOT NULL AS archived FROM combos
+        WHERE id = $1
+          FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows[0]) {
+      return { status: "not_found" };
+    }
+
+    if (!rows[0].archived) {
+      return { status: "not_archived" };
+    }
+
+    const references = await tx.query<{ name: string; archived: boolean }>(
+      `SELECT name, archived_at IS NOT NULL AS archived FROM items
+        WHERE id IN (SELECT item_id FROM combo_components WHERE combo_id = $1)
+          FOR SHARE`,
+      [id],
+    );
+    const swaps = await tx.query<{ name: string; archived: boolean }>(
+      `SELECT name, archived_at IS NOT NULL AS archived FROM categories
+        WHERE id IN (
+                SELECT swap_category_id FROM combo_components WHERE combo_id = $1
+              )
+          FOR SHARE`,
+      [id],
+    );
+    const blocked = [...references.rows, ...swaps.rows]
+      .filter((row) => row.archived)
+      .map((row) => row.name)
+      .sort();
+
+    if (blocked.length > 0) {
+      return { status: "blocked", blocked_by: blocked };
+    }
+
+    await tx.query(
+      `UPDATE combos
+          SET archived_at = NULL, updated_at = now()
+        WHERE id = $1`,
+      [id],
+    );
+
+    return { status: "restored", row: (await readCombo(tx, id))! };
+  });
+}
+
 async function checkReferences(
   tx: PoolClient,
   foodtruckId: string,
@@ -219,7 +274,10 @@ async function checkReferences(
   );
   const { rows: categories } = await tx.query<{ id: string }>(
     `SELECT id FROM categories
-      WHERE id = ANY($1::uuid[]) AND foodtruck_id = $2`,
+      WHERE id = ANY($1::uuid[])
+        AND foodtruck_id = $2
+        AND archived_at IS NULL
+        FOR SHARE`,
     [categoryIds, foodtruckId],
   );
   const found = new Set(categories.map((category) => category.id));

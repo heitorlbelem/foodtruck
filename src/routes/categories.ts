@@ -1,13 +1,15 @@
 import type { FastifyInstance } from "fastify";
 
 import {
+  archiveCategory,
   createCategory,
-  deleteCategory,
   listCategories,
+  restoreCategory,
   updateCategory,
 } from "../catalog/categories.ts";
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
+import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound } from "./http-errors.ts";
 import { idParams, sortOrder } from "./schemas.ts";
 
@@ -54,7 +56,7 @@ export async function categoryRoutes(app: FastifyInstance) {
         app.db,
         foodtruckId,
         request.body,
-      ).catch(rethrowDuplicate(request.body.name));
+      ).catch(rethrowDuplicate(app, request.body.name));
 
       return reply.code(201).send(category);
     },
@@ -78,7 +80,7 @@ export async function categoryRoutes(app: FastifyInstance) {
         app.db,
         request.params.id,
         request.body,
-      ).catch(rethrowDuplicate(request.body.name));
+      ).catch(rethrowDuplicate(app, request.body.name));
 
       if (!category) {
         throw notFound("category not found");
@@ -92,31 +94,48 @@ export async function categoryRoutes(app: FastifyInstance) {
     "/categories/:id",
     { schema: { params: idParams } },
     async (request, reply) => {
-      const result = await deleteCategory(app.db, request.params.id);
+      const result = await archiveCategory(app.db, request.params.id);
 
-      if (!result.deleted && result.reason === "not_found") {
+      if (!result.archived && result.reason === "not_found") {
         throw notFound("category not found");
       }
 
-      if (!result.deleted && result.reason === "has_items") {
-        throw conflict(`category "${result.name}" still has items`);
-      }
+      if (!result.archived) {
+        const holders = [
+          ...(result.items.length > 0
+            ? [`items: ${result.items.join(", ")}`]
+            : []),
+          ...(result.combos.length > 0
+            ? [`combos: ${result.combos.join(", ")}`]
+            : []),
+        ];
 
-      if (!result.deleted) {
         throw conflict(
-          `category "${result.name}" is the swap category of ${result.combos.join(", ")}`,
+          `category "${result.name}" is still used by ${holders.join("; ")}`,
         );
       }
 
       return reply.code(204).send();
     },
   );
+
+  restoreRoute(app, {
+    table: "categories",
+    noun: "category",
+    schema: categorySchema,
+    restore: restoreCategory,
+  });
 }
 
-function rethrowDuplicate(name: string | undefined) {
-  return (error: unknown): never => {
+function rethrowDuplicate(app: FastifyInstance, name: string | undefined) {
+  return async (error: unknown): Promise<never> => {
     if (isUniqueViolation(error)) {
-      throw conflict(`a category named "${name}" already exists`);
+      throw await nameTaken(
+        app,
+        "categories",
+        `a category named "${name}" already exists`,
+        name,
+      );
     }
 
     throw error;

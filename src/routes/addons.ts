@@ -5,9 +5,11 @@ import {
   createAddon,
   listAddons,
   updateAddon,
+  restoreAddon,
 } from "../catalog/addons.ts";
 import { currentFoodtruckId } from "../catalog/foodtruck.ts";
 import { isUniqueViolation } from "../infra/db/errors.ts";
+import { nameTaken, restoreRoute } from "./archiving.ts";
 import { conflict, notFound } from "./http-errors.ts";
 import { idParams, priceCents } from "./schemas.ts";
 
@@ -51,7 +53,7 @@ export async function addonRoutes(app: FastifyInstance) {
     async (request, reply) => {
       const foodtruckId = await currentFoodtruckId(app.db);
       const addon = await createAddon(app.db, foodtruckId, request.body).catch(
-        rethrowWriteError(request.body),
+        rethrowWriteError(app, request.body),
       );
 
       return reply.code(201).send(addon);
@@ -76,7 +78,7 @@ export async function addonRoutes(app: FastifyInstance) {
         app.db,
         request.params.id,
         request.body,
-      ).catch(rethrowWriteError(request.body));
+      ).catch(rethrowWriteError(app, request.body));
 
       if (!addon) {
         throw notFound("addon not found");
@@ -105,12 +107,24 @@ export async function addonRoutes(app: FastifyInstance) {
       return reply.code(204).send();
     },
   );
+
+  restoreRoute(app, {
+    table: "addons",
+    noun: "addon",
+    schema: addonSchema,
+    restore: restoreAddon,
+  });
 }
 
-function rethrowWriteError(body: Partial<AddonBody>) {
-  return (error: unknown): never => {
+function rethrowWriteError(app: FastifyInstance, body: Partial<AddonBody>) {
+  return async (error: unknown): Promise<never> => {
     if (isUniqueViolation(error)) {
-      throw conflict(`an addon named "${body.name}" already exists`);
+      throw await nameTaken(
+        app,
+        "addons",
+        `an addon named "${body.name}" already exists`,
+        body.name,
+      );
     }
 
     throw error;

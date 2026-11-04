@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 
-import { isForeignKeyViolation } from "../infra/db/errors.ts";
+import { withTransaction } from "../infra/db/transaction.ts";
+import type { RestoreResult } from "./archived.ts";
 
 export type Category = { id: string; name: string; sort_order: number };
 
@@ -12,7 +13,7 @@ export async function listCategories(
 ): Promise<Category[]> {
   const { rows } = await db.query<Category>(
     `SELECT ${COLUMNS} FROM categories
-      WHERE foodtruck_id = $1
+      WHERE foodtruck_id = $1 AND archived_at IS NULL
       ORDER BY sort_order, name`,
     [foodtruckId],
   );
@@ -45,7 +46,7 @@ export async function updateCategory(
         SET name = coalesce($2, name),
             sort_order = coalesce($3, sort_order),
             updated_at = now()
-      WHERE id = $1
+      WHERE id = $1 AND archived_at IS NULL
       RETURNING ${COLUMNS}`,
     [id, input.name ?? null, input.sort_order ?? null],
   );
@@ -53,58 +54,97 @@ export async function updateCategory(
   return rows[0];
 }
 
-export type DeleteCategoryResult =
-  | { deleted: true }
-  | { deleted: false; reason: "not_found" }
-  | { deleted: false; reason: "has_items"; name: string }
+export type ArchiveCategoryResult =
+  | { archived: true }
+  | { archived: false; reason: "not_found" }
   | {
-      deleted: false;
-      reason: "swap_category";
+      archived: false;
+      reason: "in_use";
       name: string;
+      items: string[];
       combos: string[];
     };
 
-export async function deleteCategory(
+export async function archiveCategory(
   db: Pool,
   id: string,
-): Promise<DeleteCategoryResult> {
-  try {
-    const { rowCount } = await db.query(
-      "DELETE FROM categories WHERE id = $1",
+): Promise<ArchiveCategoryResult> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query<{ name: string }>(
+      `SELECT name FROM categories
+        WHERE id = $1 AND archived_at IS NULL
+          FOR UPDATE`,
       [id],
     );
 
-    return rowCount === 1
-      ? { deleted: true }
-      : { deleted: false, reason: "not_found" };
-  } catch (error) {
-    if (!isForeignKeyViolation(error)) {
-      throw error;
+    if (!rows[0]) {
+      return { archived: false, reason: "not_found" };
     }
 
-    const { rows } = await db.query<{
-      name: string;
-      has_items: boolean;
-      combos: string[];
-    }>(
-      `SELECT category.name,
-              EXISTS (SELECT 1 FROM items WHERE category_id = category.id)
-                AS has_items,
-              coalesce(
-                (SELECT array_agg(DISTINCT combo.name ORDER BY combo.name)
-                   FROM combo_components component
-                   JOIN combos combo ON combo.id = component.combo_id
-                  WHERE component.swap_category_id = category.id),
-                '{}'
-              ) AS combos
-         FROM categories category
-        WHERE category.id = $1`,
+    const items = await tx.query<{ name: string }>(
+      `SELECT name FROM items
+        WHERE category_id = $1 AND archived_at IS NULL
+        ORDER BY name`,
       [id],
     );
-    const { name, has_items, combos } = rows[0]!;
+    const combos = await tx.query<{ name: string }>(
+      `SELECT DISTINCT combo.name
+         FROM combo_components component
+         JOIN combos combo ON combo.id = component.combo_id
+        WHERE component.swap_category_id = $1 AND combo.archived_at IS NULL
+        ORDER BY combo.name`,
+      [id],
+    );
 
-    return has_items
-      ? { deleted: false, reason: "has_items", name }
-      : { deleted: false, reason: "swap_category", name, combos };
-  }
+    if (items.rows.length > 0 || combos.rows.length > 0) {
+      return {
+        archived: false,
+        reason: "in_use",
+        name: rows[0].name,
+        items: items.rows.map((item) => item.name),
+        combos: combos.rows.map((combo) => combo.name),
+      };
+    }
+
+    await tx.query(
+      `UPDATE categories
+          SET archived_at = now(), updated_at = now()
+        WHERE id = $1`,
+      [id],
+    );
+
+    return { archived: true };
+  });
+}
+
+export async function restoreCategory(
+  db: Pool,
+  id: string,
+): Promise<RestoreResult<Category>> {
+  return withTransaction(db, async (tx) => {
+    const { rows } = await tx.query<{ archived: boolean }>(
+      `SELECT archived_at IS NOT NULL AS archived FROM categories
+        WHERE id = $1
+          FOR UPDATE`,
+      [id],
+    );
+
+    if (!rows[0]) {
+      return { status: "not_found" };
+    }
+
+    if (!rows[0].archived) {
+      return { status: "not_archived" };
+    }
+
+    const restored = await tx.query<Category>(
+      `UPDATE categories
+          SET archived_at = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING ${COLUMNS}`,
+      [id],
+    );
+
+    return { status: "restored", row: restored.rows[0]! };
+  });
 }
