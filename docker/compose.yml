@@ -8,6 +8,13 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
+    # `compose up --wait` only waits for a healthcheck, so without one the
+    # migrations would start before Postgres accepts connections.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
 
 volumes:
   postgres-data:

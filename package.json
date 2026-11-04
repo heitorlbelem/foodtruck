@@ -20,17 +20,24 @@
     "vitest": "^5.1.0"
   },
   "scripts": {
+    "predev": "npm run services:up",
     "dev": "node --env-file=.env.development --watch src/server.ts",
     "start": "node --env-file=.env.development src/server.ts",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run services:up",
     "test": "vitest run",
+    "pretest:watch": "npm run services:up",
     "test:watch": "vitest",
+    "check": "npm run lint && npm run typecheck && npm test",
+    "services:up": "npm run db:up && npm run migrate up",
     "db:up": "docker compose -f docker/compose.yml up -d --wait",
     "db:down": "docker compose -f docker/compose.yml down",
     "migrate": "node --env-file=.env.development node_modules/node-pg-migrate/bin/node-pg-migrate.js -m src/infra/db/migrations -j sql",
     "format": "prettier --write .",
     "lint": "prettier --check .",
-    "check": "npm run lint && npm run typecheck && npm test",
     "prepare": "git config core.hooksPath .githooks"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
