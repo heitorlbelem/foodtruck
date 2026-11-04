@@ -27,6 +27,14 @@ async function createItem(body: object) {
   return (await inject("POST", "/items", body)).json();
 }
 
+async function countIngredients(itemId: string) {
+  const { rows } = await app.db.query(
+    "SELECT count(*)::int AS n FROM item_ingredients WHERE item_id = $1",
+    [itemId],
+  );
+  return rows[0].n;
+}
+
 async function countItems() {
   const { rows } = await app.db.query("SELECT count(*)::int AS n FROM items");
   return rows[0].n;
@@ -47,6 +55,7 @@ describe("items", () => {
       category_id: category.id,
       name: "Hambúrguer",
       price_cents: 2500,
+      ingredients: [],
     });
   });
 
@@ -257,5 +266,118 @@ describe("deleting a category that holds items", () => {
     const response = await inject("DELETE", `/categories/${category.id}`);
 
     expect(response.statusCode).toBe(409);
+  });
+});
+
+describe("removable ingredients", () => {
+  async function createBurger(ingredients?: string[]) {
+    const category = await createCategory("Lanches");
+    return createItem({
+      category_id: category.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+      ...(ingredients ? { ingredients } : {}),
+    });
+  }
+
+  it("creates an item with its removable ingredients", async () => {
+    const category = await createCategory("Lanches");
+    const response = await inject("POST", "/items", {
+      category_id: category.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+      ingredients: ["alface", "tomate", "cebola"],
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().ingredients).toEqual(["alface", "tomate", "cebola"]);
+  });
+
+  it("keeps the ingredient order the owner typed", async () => {
+    await createBurger(["alface", "tomate", "cebola"]);
+
+    const items = (await inject("GET", "/items")).json();
+
+    expect(items[0].ingredients).toEqual(["alface", "tomate", "cebola"]);
+  });
+
+  it("returns an empty list for an item without ingredients", async () => {
+    await createBurger();
+
+    const items = (await inject("GET", "/items")).json();
+
+    expect(items[0].ingredients).toEqual([]);
+  });
+
+  it("replaces the whole ingredient list on patch", async () => {
+    const item = await createBurger(["alface", "tomate", "cebola"]);
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      ingredients: ["alface"],
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().ingredients).toEqual(["alface"]);
+    expect(await countIngredients(item.id)).toBe(1);
+  });
+
+  it("clears the ingredient list on patch with an empty array", async () => {
+    const item = await createBurger(["alface", "tomate"]);
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      ingredients: [],
+    });
+
+    expect(response.json().ingredients).toEqual([]);
+    expect(await countIngredients(item.id)).toBe(0);
+  });
+
+  it("keeps the ingredient list on a patch that omits it", async () => {
+    const item = await createBurger(["alface", "tomate"]);
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      price_cents: 2800,
+    });
+
+    expect(response.json()).toMatchObject({
+      price_cents: 2800,
+      ingredients: ["alface", "tomate"],
+    });
+  });
+
+  it("refuses the same ingredient twice in one item with 400", async () => {
+    const category = await createCategory("Lanches");
+    const response = await inject("POST", "/items", {
+      category_id: category.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+      ingredients: ["alface", "alface"],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("ingredients");
+    expect(await countItems()).toBe(0);
+  });
+
+  it("refuses an empty ingredient name with 400", async () => {
+    const category = await createCategory("Lanches");
+    const response = await inject("POST", "/items", {
+      category_id: category.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+      ingredients: [""],
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("ingredients");
+    expect(await countItems()).toBe(0);
+  });
+
+  it("drops the ingredients of an item that is deleted from the database", async () => {
+    const item = await createBurger(["alface"]);
+
+    await app.db.query("DELETE FROM items WHERE id = $1", [item.id]);
+
+    expect(await countIngredients(item.id)).toBe(0);
   });
 });

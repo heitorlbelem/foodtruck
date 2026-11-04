@@ -13,7 +13,12 @@ import {
 } from "../infra/db/errors.ts";
 import { conflict, notFound, unprocessable } from "./http-errors.ts";
 
-type ItemBody = { category_id: string; name: string; price_cents: number };
+type ItemBody = {
+  category_id: string;
+  name: string;
+  price_cents: number;
+  ingredients: string[];
+};
 type IdParams = { id: string };
 
 const itemSchema = {
@@ -23,6 +28,7 @@ const itemSchema = {
     category_id: { type: "string" },
     name: { type: "string" },
     price_cents: { type: "integer" },
+    ingredients: { type: "array", items: { type: "string" } },
   },
 };
 
@@ -30,6 +36,11 @@ const bodyProperties = {
   category_id: { type: "string", format: "uuid" },
   name: { type: "string", minLength: 1 },
   price_cents: { type: "integer", minimum: 0 },
+  ingredients: {
+    type: "array",
+    items: { type: "string", minLength: 1 },
+    uniqueItems: true,
+  },
 };
 
 const idParams = {
