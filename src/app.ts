@@ -4,6 +4,7 @@ import Fastify, { type FastifyError, type FastifyServerOptions } from "fastify";
 import type { Pool } from "pg";
 
 import { createPool } from "./infra/db/pool.ts";
+import { addonRoutes } from "./routes/addons.ts";
 import { categoryRoutes } from "./routes/categories.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { itemRoutes } from "./routes/items.ts";
@@ -53,6 +54,7 @@ export function buildApp(
   app.register(healthRoutes);
   app.register(categoryRoutes);
   app.register(itemRoutes);
+  app.register(addonRoutes);
 
   return app;
 }

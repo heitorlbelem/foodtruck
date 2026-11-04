@@ -56,6 +56,7 @@ describe("items", () => {
       name: "Hambúrguer",
       price_cents: 2500,
       ingredients: [],
+      addons: [],
     });
   });
 
@@ -379,5 +380,190 @@ describe("removable ingredients", () => {
     await app.db.query("DELETE FROM items WHERE id = $1", [item.id]);
 
     expect(await countIngredients(item.id)).toBe(0);
+  });
+});
+
+describe("addons an item accepts", () => {
+  async function createAddon(name: string, price_cents: number) {
+    return (await inject("POST", "/addons", { name, price_cents })).json();
+  }
+
+  async function burgerBody(addon_ids?: string[]) {
+    const category = await createCategory("Lanches");
+    return {
+      category_id: category.id,
+      name: "Hambúrguer",
+      price_cents: 2500,
+      ...(addon_ids ? { addon_ids } : {}),
+    };
+  }
+
+  it("declares which addons an item accepts", async () => {
+    const bacon = await createAddon("Bacon", 500);
+
+    const response = await inject(
+      "POST",
+      "/items",
+      await burgerBody([bacon.id]),
+    );
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().addons).toEqual([
+      { id: bacon.id, name: "Bacon", price_cents: 500 },
+    ]);
+  });
+
+  it("lists the accepted addons by name", async () => {
+    const egg = await createAddon("Ovo", 300);
+    const bacon = await createAddon("Bacon", 500);
+    await createItem(await burgerBody([egg.id, bacon.id]));
+
+    const items = (await inject("GET", "/items")).json();
+
+    expect(items[0].addons.map((a: { name: string }) => a.name)).toEqual([
+      "Bacon",
+      "Ovo",
+    ]);
+  });
+
+  it("shows the addon's current price", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    await createItem(await burgerBody([bacon.id]));
+    await inject("PATCH", `/addons/${bacon.id}`, { price_cents: 700 });
+
+    const items = (await inject("GET", "/items")).json();
+
+    expect(items[0].addons[0].price_cents).toBe(700);
+  });
+
+  it("refuses an unknown addon id with 422", async () => {
+    const unknown = randomUUID();
+
+    const response = await inject(
+      "POST",
+      "/items",
+      await burgerBody([unknown]),
+    );
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().message).toContain(unknown);
+    expect(await countItems()).toBe(0);
+  });
+
+  it("refuses an archived addon with 422", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    await inject("DELETE", `/addons/${bacon.id}`);
+
+    const response = await inject(
+      "POST",
+      "/items",
+      await burgerBody([bacon.id]),
+    );
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().message).toContain(bacon.id);
+    expect(await countItems()).toBe(0);
+  });
+
+  it("names only the offending ids", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    const unknown = randomUUID();
+
+    const response = await inject(
+      "POST",
+      "/items",
+      await burgerBody([bacon.id, unknown]),
+    );
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().message).toContain(unknown);
+    expect(response.json().message).not.toContain(bacon.id);
+  });
+
+  it("refuses the same addon twice with 400", async () => {
+    const bacon = await createAddon("Bacon", 500);
+
+    const response = await inject(
+      "POST",
+      "/items",
+      await burgerBody([bacon.id, bacon.id]),
+    );
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("addon_ids");
+  });
+
+  it("refuses an addon id that is not a uuid with 400", async () => {
+    const response = await inject("POST", "/items", await burgerBody(["abc"]));
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("addon_ids");
+  });
+
+  it("replaces the whole addon list on patch", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    const egg = await createAddon("Ovo", 300);
+    const item = await createItem(await burgerBody([bacon.id]));
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      addon_ids: [egg.id],
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().addons).toEqual([
+      { id: egg.id, name: "Ovo", price_cents: 300 },
+    ]);
+  });
+
+  it("clears the addon list on patch with an empty array", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    const item = await createItem(await burgerBody([bacon.id]));
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      addon_ids: [],
+    });
+
+    expect(response.json().addons).toEqual([]);
+  });
+
+  it("keeps the addon list on a patch that omits it", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    const item = await createItem(await burgerBody([bacon.id]));
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      price_cents: 2800,
+    });
+
+    expect(response.json().addons).toEqual([
+      { id: bacon.id, name: "Bacon", price_cents: 500 },
+    ]);
+  });
+
+  it("leaves the item untouched when a patch names an unknown addon", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    const item = await createItem(await burgerBody([bacon.id]));
+
+    const response = await inject("PATCH", `/items/${item.id}`, {
+      price_cents: 2800,
+      addon_ids: [randomUUID()],
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect((await inject("GET", "/items")).json()[0]).toMatchObject({
+      price_cents: 2500,
+      addons: [{ id: bacon.id }],
+    });
+  });
+
+  it("leaves an archived addon out of the item", async () => {
+    const bacon = await createAddon("Bacon", 500);
+    await createItem(await burgerBody([bacon.id]));
+    await app.db.query("UPDATE addons SET archived_at = now() WHERE id = $1", [
+      bacon.id,
+    ]);
+
+    const items = (await inject("GET", "/items")).json();
+
+    expect(items[0].addons).toEqual([]);
   });
 });
