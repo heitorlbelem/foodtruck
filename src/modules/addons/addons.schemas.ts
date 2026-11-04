@@ -1,5 +1,6 @@
 import {
   archivedQuery,
+  bearer,
   centsField,
   errors,
   LIST_BAD_REQUEST,
@@ -40,6 +41,7 @@ const NAME_TAKEN =
 
 export const listAddonsSchema = {
   tags,
+  security: bearer,
   summary: "Listar adicionais",
   description:
     "Lista os adicionais por nome. Com `?archived=true`, lista só os arquivados.",
@@ -56,6 +58,7 @@ export const listAddonsSchema = {
 
 export const createAddonSchema = {
   tags,
+  security: bearer,
   summary: "Criar adicional",
   description:
     "Cria um adicional com preço próprio. Depois, ligue-o aos itens que o aceitam com `addon_ids` no item.",
@@ -74,6 +77,7 @@ export const createAddonSchema = {
 
 export const updateAddonSchema = {
   tags,
+  security: bearer,
   summary: "Alterar adicional",
   description: "Altera nome e/ou preço. Campos omitidos ficam como estão.",
   params: idParams,
@@ -90,6 +94,7 @@ export const updateAddonSchema = {
 
 export const archiveAddonSchema = {
   tags,
+  security: bearer,
   summary: "Arquivar adicional",
   description:
     "Arquiva o adicional. Recusado enquanto algum item ativo o aceitar; tire-o do `addon_ids` desses itens antes.",
@@ -105,6 +110,7 @@ export const archiveAddonSchema = {
 
 export const restoreAddonSchema = {
   tags,
+  security: bearer,
   summary: "Restaurar adicional",
   description:
     "Traz de volta um adicional arquivado, com o mesmo id. Ele volta a aparecer nos itens que já o aceitavam.",

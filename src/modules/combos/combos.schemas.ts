@@ -1,5 +1,6 @@
 import {
   archivedQuery,
+  bearer,
   centsField,
   errors,
   LIST_BAD_REQUEST,
@@ -110,6 +111,7 @@ const INVALID_REFERENCE =
 
 export const listCombosSchema = {
   tags,
+  security: bearer,
   summary: "Listar combos",
   description:
     "Lista os combos por nome. Com `?archived=true`, lista só os arquivados.",
@@ -122,6 +124,7 @@ export const listCombosSchema = {
 
 export const createComboSchema = {
   tags,
+  security: bearer,
   summary: "Criar combo",
   description:
     "Cria um combo a partir de itens ativos. Sem `price_cents`, o preço é a soma dos componentes.",
@@ -159,6 +162,7 @@ export const createComboSchema = {
 
 export const updateComboSchema = {
   tags,
+  security: bearer,
   summary: "Alterar combo",
   description:
     "Altera o combo. Campos omitidos ficam como estão; `components`, quando enviado, substitui a lista inteira. O preço não é recalculado.",
@@ -179,6 +183,7 @@ export const updateComboSchema = {
 
 export const archiveComboSchema = {
   tags,
+  security: bearer,
   summary: "Arquivar combo",
   description:
     "Arquiva o combo. Nada depende de combos, então não há bloqueio.",
@@ -191,6 +196,7 @@ export const archiveComboSchema = {
 
 export const restoreComboSchema = {
   tags,
+  security: bearer,
   summary: "Restaurar combo",
   description:
     "Traz de volta um combo arquivado, com o mesmo id, preço e componentes. Exige os itens e as categorias de troca ativos.",

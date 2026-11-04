@@ -22,7 +22,7 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<{ Querystring: ArchivedQuery }>(
     "/categories",
-    { schema: listCategoriesSchema },
+    { schema: listCategoriesSchema, config: { permission: "catalog:read" } },
     async (request) =>
       categories.list(await foodtrucks.currentId(), {
         archived: request.query.archived === "true",
@@ -31,7 +31,7 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Body: CategoryBody }>(
     "/categories",
-    { schema: createCategorySchema },
+    { schema: createCategorySchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       const category = await service.create(
         await foodtrucks.currentId(),
@@ -44,7 +44,7 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: IdParams; Body: Partial<CategoryBody> }>(
     "/categories/:id",
-    { schema: updateCategorySchema },
+    { schema: updateCategorySchema, config: { permission: "catalog:write" } },
     async (request) =>
       service.update(
         await foodtrucks.currentId(),
@@ -55,7 +55,7 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete<{ Params: IdParams }>(
     "/categories/:id",
-    { schema: archiveCategorySchema },
+    { schema: archiveCategorySchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       await service.archive(request.params.id);
 
@@ -65,7 +65,7 @@ export const categoryRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Params: IdParams }>(
     "/categories/:id/restore",
-    { schema: restoreCategorySchema },
+    { schema: restoreCategorySchema, config: { permission: "catalog:write" } },
     async (request) => service.restore(request.params.id),
   );
 };

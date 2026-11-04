@@ -1,4 +1,4 @@
-import { errors, idField } from "../../shared/schemas.ts";
+import { bearer, errors, idField } from "../../shared/schemas.ts";
 
 const tags = ["autenticacao"];
 
@@ -92,7 +92,7 @@ export const loginSchema = {
         401: "`INVALID_CREDENTIALS`: e-mail ou senha incorretos. A resposta é a mesma para e-mail desconhecido, senha errada e usuário inativo.",
         429: "`TOO_MANY_ATTEMPTS`: muitas tentativas falhas. Aguarde `details.retry_after_seconds` (também no cabeçalho `Retry-After`).",
       },
-      { body: true },
+      { body: true, auth: false },
     ),
   },
 };
@@ -116,13 +116,14 @@ export const refreshSchema = {
       {
         401: "`INVALID_REFRESH_TOKEN`: token desconhecido, já usado, expirado ou de sessão encerrada. Peça login de novo.",
       },
-      { body: true },
+      { body: true, auth: false },
     ),
   },
 };
 
 export const logoutSchema = {
   tags,
+  security: bearer,
   summary: "Sair",
   description:
     "Encerra a sessão do token usado na chamada; o `refresh_token` dela deixa de funcionar.",
@@ -134,6 +135,7 @@ export const logoutSchema = {
 
 export const meSchema = {
   tags,
+  security: bearer,
   summary: "Usuário autenticado",
   description: "Devolve o usuário dono do token enviado.",
   response: {

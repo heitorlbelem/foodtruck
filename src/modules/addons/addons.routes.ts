@@ -21,7 +21,7 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<{ Querystring: ArchivedQuery }>(
     "/addons",
-    { schema: listAddonsSchema },
+    { schema: listAddonsSchema, config: { permission: "catalog:read" } },
     async (request) =>
       addons.list(await foodtrucks.currentId(), {
         archived: request.query.archived === "true",
@@ -30,7 +30,7 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Body: AddonInput }>(
     "/addons",
-    { schema: createAddonSchema },
+    { schema: createAddonSchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       const addon = await service.create(
         await foodtrucks.currentId(),
@@ -43,7 +43,7 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch<{ Params: IdParams; Body: Partial<AddonInput> }>(
     "/addons/:id",
-    { schema: updateAddonSchema },
+    { schema: updateAddonSchema, config: { permission: "catalog:write" } },
     async (request) =>
       service.update(
         await foodtrucks.currentId(),
@@ -54,7 +54,7 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete<{ Params: IdParams }>(
     "/addons/:id",
-    { schema: archiveAddonSchema },
+    { schema: archiveAddonSchema, config: { permission: "catalog:write" } },
     async (request, reply) => {
       await service.archive(request.params.id);
 
@@ -64,7 +64,7 @@ export const addonRoutes: FastifyPluginAsync = async (app) => {
 
   app.post<{ Params: IdParams }>(
     "/addons/:id/restore",
-    { schema: restoreAddonSchema },
+    { schema: restoreAddonSchema, config: { permission: "catalog:write" } },
     async (request) => service.restore(request.params.id),
   );
 };

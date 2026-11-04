@@ -2,6 +2,7 @@ import { Validator } from "@seriousme/openapi-schema-validator";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../../app.ts";
+import { authHeaders } from "../auth/testing.ts";
 import { resetCatalog } from "../../infra/db/testing.ts";
 import { ERROR_CODES } from "../../shared/error-codes.ts";
 import { TAGS } from "./guide.ts";
@@ -10,6 +11,7 @@ type Operation = {
   summary?: string;
   description?: string;
   tags?: string[];
+  security?: unknown[];
   parameters?: { name: string }[];
   responses: Record<string, any>;
 };
@@ -87,6 +89,15 @@ describe("openapi document", () => {
       }
 
       expect(errorEnum(op.responses["500"]), label).toEqual([...ERROR_CODES]);
+
+      const isPublic = ["/api/v1/auth/login", "/api/v1/auth/refresh"].includes(
+        url,
+      );
+      expect(op.security, label).toEqual(
+        isPublic ? undefined : [{ bearerAuth: [] }],
+      );
+      expect(Boolean(op.responses["401"]), label).toBe(true);
+      expect(Boolean(op.responses["403"]), label).toBe(!isPublic);
 
       if (url.includes(":id")) {
         expect(op.responses["404"], label).toBeDefined();
@@ -290,8 +301,9 @@ describe("error responses with declared schemas", () => {
   beforeEach(() => resetCatalog(app.db));
 
   it("keeps details after declaring error schemas", async () => {
+    const headers = await authHeaders(app);
     const post = async (url: string, payload: object) =>
-      (await app.inject({ method: "POST", url, payload })).json();
+      (await app.inject({ method: "POST", url, payload, headers })).json();
     const snacks = await post("/api/v1/categories", { name: "Lanches" });
     const bacon = await post("/api/v1/addons", {
       name: "Bacon",
@@ -307,6 +319,7 @@ describe("error responses with declared schemas", () => {
     const response = await app.inject({
       method: "DELETE",
       url: `/api/v1/addons/${bacon.id}`,
+      headers,
     });
 
     expect(response.statusCode).toBe(409);

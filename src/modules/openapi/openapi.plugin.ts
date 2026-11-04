@@ -31,6 +31,11 @@ export function registerOpenapi(app: FastifyInstance) {
       openapi: "3.1.0",
       info: { title: "Foodtruck API", version: "1.0.0", description: GUIDE },
       servers: [{ url: "https://foodtruck-api.fly.dev" }],
+      components: {
+        securitySchemes: {
+          bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+        },
+      },
       tags: TAGS.map((tag) => ({ ...tag })),
     },
     refResolver: {

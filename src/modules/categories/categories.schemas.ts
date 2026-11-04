@@ -1,5 +1,6 @@
 import {
   archivedQuery,
+  bearer,
   errors,
   LIST_BAD_REQUEST,
   idField,
@@ -45,6 +46,7 @@ const NAME_TAKEN =
 
 export const listCategoriesSchema = {
   tags,
+  security: bearer,
   summary: "Listar categorias",
   description:
     "Lista as categorias ordenadas por `sort_order` e depois por nome. Com `?archived=true`, lista só as arquivadas.",
@@ -61,6 +63,7 @@ export const listCategoriesSchema = {
 
 export const createCategorySchema = {
   tags,
+  security: bearer,
   summary: "Criar categoria",
   description:
     "Cria uma categoria. É o primeiro passo do cardápio: todo item pertence a uma categoria.",
@@ -79,6 +82,7 @@ export const createCategorySchema = {
 
 export const updateCategorySchema = {
   tags,
+  security: bearer,
   summary: "Alterar categoria",
   description:
     "Altera nome e/ou posição. Campos omitidos ficam como estão. Categorias arquivadas não podem ser alteradas.",
@@ -96,6 +100,7 @@ export const updateCategorySchema = {
 
 export const archiveCategorySchema = {
   tags,
+  security: bearer,
   summary: "Arquivar categoria",
   description:
     "Arquiva a categoria (nada é apagado). Recusado enquanto houver itens ativos nela ou combos ativos que a usam como categoria de troca.",
@@ -111,6 +116,7 @@ export const archiveCategorySchema = {
 
 export const restoreCategorySchema = {
   tags,
+  security: bearer,
   summary: "Restaurar categoria",
   description: "Traz de volta uma categoria arquivada, com o mesmo id.",
   params: idParams,

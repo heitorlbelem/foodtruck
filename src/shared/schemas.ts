@@ -125,13 +125,26 @@ const BODY_ERRORS = {
   415: "`UNSUPPORTED_MEDIA_TYPE`: `Content-Type` não suportado; envie `application/json`.",
 };
 
+export const bearer = [{ bearerAuth: [] }];
+
+const UNAUTHENTICATED =
+  "`UNAUTHENTICATED`: token ausente, inválido ou expirado. Renove com `/auth/refresh` ou faça login de novo.";
+
+const FORBIDDEN =
+  "`FORBIDDEN`: o papel do usuário não tem a permissão que a rota exige.";
+
 export function errors(
   descriptions: Partial<Record<ErrorStatus, string>>,
-  { body = false, input = true }: { body?: boolean; input?: boolean } = {},
+  {
+    body = false,
+    input = true,
+    auth = true,
+  }: { body?: boolean; input?: boolean; auth?: boolean } = {},
 ) {
   return Object.fromEntries(
     Object.entries({
       ...(input ? { 400: BAD_REQUEST } : {}),
+      ...(auth ? { 401: UNAUTHENTICATED, 403: FORBIDDEN } : {}),
       ...descriptions,
       ...(body ? BODY_ERRORS : {}),
       500: INTERNAL_ERROR,
